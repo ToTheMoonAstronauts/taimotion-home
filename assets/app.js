@@ -17,10 +17,12 @@
   function load() {
     try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; }
   }
-  const PAGE_VARIANT = String(window.QUIZ_VARIANT || "a").toLowerCase();
+  const EXPLICIT_V = window.QUIZ_VARIANT ? String(window.QUIZ_VARIANT).toLowerCase() : null;  // only quiz-b/quiz-c set this
+  const PAGE_VARIANT = EXPLICIT_V || "a";
   function fresh() {
     return { id: uuid(), funnel: F.product, created_at: new Date().toISOString(),
       ab_test_name: F.abTestName || null, ab_test_variant: PAGE_VARIANT,
+      ab_test_source: EXPLICIT_V ? "url" : null,   // "url" = explicit page (outside the PostHog experiment), "flag" = experiment-assigned
       age_band: null, answers: {}, index: 0, email: null, name: null,
       height_cm: null, weight_kg: null, goal_weight_kg: null, bmi: null,
       selected_plan: null, status: "in_progress" };
@@ -62,30 +64,68 @@
     S = fresh(); save();
   }
   // ---- quiz-length A/B/C: adopt/reconcile the variant, then filter the screen list.
-  // Must run BEFORE _secOf/_secLen below (they're derived from F.screens).
+  // Two assignment paths share the same session fields: explicit URL pages (quiz-b/quiz-c set
+  // window.QUIZ_VARIANT -> source "url", deliberately OUTSIDE the PostHog experiment) and the
+  // PostHog `quiz-length` experiment flag on plain quiz.html (source "flag", control -> a).
   if (!S.ab_test_variant) {           // pre-test sessions: adopt this page's variant
-    S.ab_test_name = F.abTestName || null; S.ab_test_variant = PAGE_VARIANT; save();
-  } else if (S.ab_test_variant !== PAGE_VARIANT && S.status === "in_progress" && !S.email) {
-    S = fresh(); save();              // switched variant mid-quiz: restart under the page's variant
-  }                                   // (post-email sessions keep their recorded variant)
-  const VARIANT = S.ab_test_variant;
-  const VDEF = (F.variants || {})[VARIANT] || null;
-  if (VDEF) {
-    const _cut = new Set(VDEF.cut || []);
-    F.screens = F.screens.filter(s => !_cut.has(s.id));
-    Object.entries(VDEF.copy || {}).forEach(([id, patch]) => {
-      const scr = F.screens.find(s => s.id === id); if (scr) Object.assign(scr, patch);
-    });
-  }
+    S.ab_test_name = F.abTestName || null; S.ab_test_variant = PAGE_VARIANT;
+    S.ab_test_source = EXPLICIT_V ? "url" : (S.ab_test_source || null); save();
+  } else if (EXPLICIT_V && S.ab_test_variant !== EXPLICIT_V && S.status === "in_progress" && !S.email) {
+    S = fresh(); save();              // switched onto an explicit variant page mid-quiz: restart under it
+  }                                   // (post-email sessions and plain /quiz keep the recorded variant)
 
-  // Segmented, per-section loader (Digesti-style): sections, each its own segment.
-  const SECS = (VDEF && VDEF.secs) || ["My profile", "Activity", "Lifestyle"];
-  // quiz.html hardcodes 3 .seg spans — trim to this variant's section count.
-  { const _pr = $("#progress"); if (_pr) while (_pr.children.length > SECS.length) _pr.removeChild(_pr.lastChild); }
   const SEL_DELAY = 450; // ms — let the tap register (show selected state) before auto-advancing
-  const _secOf = (() => { let cur = 0; return F.screens.map(s => { const i = SECS.indexOf(s.section); if (i >= 0) cur = i; return cur; }); })();
-  const _secLen = SECS.map((_, i) => _secOf.filter(x => x === i).length);
-  const _secStart = SECS.map((_, i) => _secOf.indexOf(i));
+  // Screens/sections derive from the variant and are recomputable: the experiment flag may
+  // upgrade a fresh session's variant while the visitor is still on the age gate (which is
+  // identical in every variant). After the age gate the variant is locked.
+  const MASTER_SCREENS = F.screens.slice();
+  let VARIANT, VDEF, SECS, _secOf, _secLen, _secStart, _segFullHtml = null;
+  function applyVariant() {
+    VARIANT = S.ab_test_variant || "a";
+    VDEF = (F.variants || {})[VARIANT] || null;
+    F.screens = MASTER_SCREENS.slice();
+    if (VDEF) {
+      const _cut = new Set(VDEF.cut || []);
+      F.screens = F.screens.filter(s => !_cut.has(s.id));
+      Object.entries(VDEF.copy || {}).forEach(([id, patch]) => {
+        const scr = F.screens.find(s => s.id === id); if (scr) Object.assign(scr, patch);
+      });
+    }
+    // Segmented, per-section loader (Digesti-style): sections, each its own segment.
+    SECS = (VDEF && VDEF.secs) || ["My profile", "Activity", "Lifestyle"];
+    // quiz.html hardcodes 3 .seg spans — restore the full markup, then trim to this variant.
+    const _pr = $("#progress");
+    if (_pr) {
+      if (_segFullHtml === null) _segFullHtml = _pr.innerHTML;
+      _pr.innerHTML = _segFullHtml;
+      while (_pr.children.length > SECS.length) _pr.removeChild(_pr.lastChild);
+    }
+    _secOf = (() => { let cur = 0; return F.screens.map(s => { const i = SECS.indexOf(s.section); if (i >= 0) cur = i; return cur; }); })();
+    _secLen = SECS.map((_, i) => _secOf.filter(x => x === i).length);
+    _secStart = SECS.map((_, i) => _secOf.indexOf(i));
+  }
+  applyVariant();
+
+  // PostHog experiment entry (flag `quiz-length`, values control/b/c): only plain quiz.html
+  // evaluates the flag — getFeatureFlag() records the $feature_flag_called exposure, so
+  // explicit-page visitors never enter the experiment's analysis. Flag off/undefined (draft
+  // experiment, blocked PostHog, slow flags) -> visitor simply stays on the full funnel.
+  if (!EXPLICIT_V && S.ab_test_source !== "url") {
+    try {
+      window.posthog.onFeatureFlags(function () {
+        try {
+          const fv = window.posthog.getFeatureFlag("quiz-length");
+          const mapped = fv === "control" ? "a" : fv;
+          if (!mapped || (mapped !== "a" && !(F.variants || {})[mapped])) return;
+          S.ab_test_source = "flag";
+          if (mapped !== S.ab_test_variant && !S.age_band && S.index === 0 && !S.email) {
+            S.ab_test_variant = mapped; applyVariant();
+          }
+          save();
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
   // Dev: ?debug=1 reveals the step-id chip (also: run `document.body.classList.toggle('debug')` in console).
   if (new URLSearchParams(location.search).has("debug")) { try { document.body.classList.add("debug"); } catch (e) {} }
   function setProgress() {
