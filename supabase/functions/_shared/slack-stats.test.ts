@@ -154,14 +154,60 @@ Deno.test('gatherStats: refunds, leads, conversion, and window bucketing', async
   assertEquals(s.conversion30, '10.0%'); // 1 new sub / 10 leads
 });
 
+// Renewal progress: churn is meaningless until members have actually been
+// billed a second time, so the output states how many have got there.
+Deno.test('gatherStats: renewals counts members that have billed at least twice', async () => {
+  const s = await gatherStats(deps({
+    subs: [
+      // Billed twice: current_period_start advanced well past created.
+      {
+        status: 'active',
+        created: daysAgo(40),
+        current_period_start: daysAgo(12),
+        current_period_end: daysAgo(-16),
+        items: weekly(2199),
+      },
+      // First cycle still running: period started when the sub was created.
+      {
+        status: 'active',
+        created: daysAgo(3),
+        current_period_start: daysAgo(3),
+        current_period_end: daysAgo(-25),
+        items: weekly(2199),
+      },
+      // Item-level period fields (Stripe's 2025 shape) — soonest renewal.
+      {
+        status: 'trialing',
+        created: daysAgo(2),
+        items: {
+          data: [{
+            quantity: 1,
+            current_period_start: daysAgo(2),
+            current_period_end: daysAgo(-5),
+            price: { id: 'p', unit_amount: 2199, recurring: { interval: 'week', interval_count: 1 } },
+          }],
+        },
+      },
+      // Canceled subs are not members: excluded from both sides of the ratio.
+      { status: 'canceled', created: daysAgo(50), current_period_start: daysAgo(9), canceled_at: daysAgo(8) },
+    ],
+  }));
+  assertEquals(s.renewals.reached, 1);
+  assertEquals(s.renewals.total, 3); // 2 active + 1 trialing
+  assertEquals(s.renewals.nextDueSec, daysAgo(-5));
+  assert(formatStats(s).includes('• Renewals: 1 of 3 reached first renewal · next due Jul 25'));
+});
+
 Deno.test('gatherStats: zero data ⇒ n/a everywhere, no crashes', async () => {
   const s = await gatherStats(deps({}));
   assertEquals(s.active, 0);
   assertEquals(s.churn30, 'n/a');
   assertEquals(s.conversion30, 'n/a');
+  assertEquals(s.renewals, { reached: 0, total: 0, nextDueSec: null });
   const text = formatStats(s);
   assert(text.includes('n/a'));
   assert(text.includes('plans: —'));
+  assert(text.includes('• Renewals: n/a'));
 });
 
 Deno.test('formatStats renders mrkdwn with both windows and derived metrics', async () => {

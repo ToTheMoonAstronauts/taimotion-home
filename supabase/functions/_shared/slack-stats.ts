@@ -20,6 +20,9 @@
 // - % change vs the preceding window of equal length; previous 0 ⇒ 'n/a'.
 // - Churn(30d) = cancels30 ÷ (actives now + cancels30) — approximation.
 //   Caveat: Stripe omits canceled subs of deleted customers.
+// - Renewals = members (active+trialing) whose current_period_start has moved
+//   past `created`, i.e. billed twice. Reported because churn is not yet a real
+//   metric while that count is 0 — nobody has had the chance to leave.
 
 // ── Minimal structural interfaces ────────────────────────────────────────────
 
@@ -27,9 +30,13 @@ export interface StatsSub {
   status: string;
   created: number; // unix sec
   canceled_at?: number | null;
+  // Top level on API 2024-06-20 (what index.ts pins); moved onto items in the
+  // 2025 versions — subPeriod() reads both, see below.
+  current_period_start?: number | null;
+  current_period_end?: number | null;
   metadata?: Record<string, string> | null;
   discounts?: unknown[] | null; // expanded Discount objects
-  items?: { data: Array<{ quantity?: number; price?: { id?: string; unit_amount?: number | null; recurring?: { interval?: string; interval_count?: number } | null } | null }> } | null;
+  items?: { data: Array<{ quantity?: number; current_period_start?: number | null; current_period_end?: number | null; price?: { id?: string; unit_amount?: number | null; recurring?: { interval?: string; interval_count?: number } | null } | null }> } | null;
 }
 export interface StatsInvoice {
   status?: string | null;
@@ -136,9 +143,30 @@ export interface Stats {
   failed7: { count: number; amountCents: number };
   conversion30: string; // lead→paid
   churn30: string;
+  // How far the member base is through its first billing cycle — churn is not
+  // yet a real metric while `reached` is 0. nextDueSec = soonest renewal charge.
+  renewals: { reached: number; total: number; nextDueSec: number | null };
 }
 
 const DAY = 86_400;
+
+// Billing period, whichever shape the pinned API version returns. Falling back
+// to the item keeps renewal tracking alive if apiVersion is ever bumped past
+// 2024-06-20 — otherwise it would silently freeze at "0 of N".
+function subPeriod(sub: StatsSub): { start: number | null; end: number | null } {
+  const item = sub.items?.data?.[0];
+  return {
+    start: sub.current_period_start ?? item?.current_period_start ?? null,
+    end: sub.current_period_end ?? item?.current_period_end ?? null,
+  };
+}
+
+// A sub billed more than once has had current_period_start advanced past its
+// creation date. A day of slack absorbs billing-anchor jitter.
+export function hasRenewed(sub: StatsSub): boolean {
+  const { start } = subPeriod(sub);
+  return typeof start === 'number' && start - sub.created > DAY;
+}
 
 export async function gatherStats(deps: StatsDeps): Promise<Stats> {
   const nowSec = Math.floor(deps.now.getTime() / 1000);
@@ -156,6 +184,7 @@ export async function gatherStats(deps: StatsDeps): Promise<Stats> {
   let active = 0, trialing = 0, mrrCents = 0;
   const planMix: Record<string, number> = {};
   const failed7 = { count: 0, amountCents: 0 };
+  const renewals: Stats['renewals'] = { reached: 0, total: 0, nextDueSec: null };
 
   const scanSubs = async () => {
     // status:'all' includes canceled subs (needed for cancel buckets).
@@ -166,6 +195,13 @@ export async function gatherStats(deps: StatsDeps): Promise<Stats> {
         mrrCents += subMonthlyCents(sub);
         const plan = sub.metadata?.plan_id || sub.items?.data[0]?.price?.id || 'unknown';
         planMix[plan] = (planMix[plan] ?? 0) + 1;
+        // Renewal progress counts members only (active + trialing).
+        renewals.total++;
+        if (hasRenewed(sub)) renewals.reached++;
+        const periodEnd = subPeriod(sub).end;
+        if (typeof periodEnd === 'number' && (renewals.nextDueSec === null || periodEnd < renewals.nextDueSec)) {
+          renewals.nextDueSec = periodEnd;
+        }
       }
       // Abandoned carts are neither signups NOR cancellations: Stripe expires
       // unpaid subs to incomplete_expired and stamps canceled_at, so counting
@@ -217,7 +253,7 @@ export async function gatherStats(deps: StatsDeps): Promise<Stats> {
   const churn30 = denomChurn === 0 ? 'n/a' : `${((w.d30.cancels / denomChurn) * 100).toFixed(1)}%`;
   const conversion30 = w.d30.leads === 0 ? 'n/a' : `${((w.d30.newSubs / w.d30.leads) * 100).toFixed(1)}%`;
 
-  return { active, trialing, mrrCents: Math.round(mrrCents), planMix, ...w, failed7, conversion30, churn30 };
+  return { active, trialing, mrrCents: Math.round(mrrCents), planMix, ...w, failed7, conversion30, churn30, renewals };
 }
 
 // ── Formatting (Slack mrkdwn) ────────────────────────────────────────────────
@@ -241,6 +277,18 @@ function windowBlock(title: string, cur: WindowCounts, prev: WindowCounts): stri
   ].join('\n');
 }
 
+// UTC so the rendered date matches the Stripe timestamp, not the isolate's TZ.
+const fmtDay = (sec: number) =>
+  new Date(sec * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+// Context for churn: a member who has never been billed twice has never had the
+// chance to leave, so "0 of N" explains a 0% churn reading.
+function renewalLine(r: Stats['renewals']): string {
+  if (r.total === 0) return '• Renewals: n/a';
+  const due = r.nextDueSec === null ? '' : ` · next due ${fmtDay(r.nextDueSec)}`;
+  return `• Renewals: ${r.reached} of ${r.total} reached first renewal${due}`;
+}
+
 export function formatStats(s: Stats): string {
   const mix = Object.entries(s.planMix).sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p}×${n}`).join(', ') || '—';
   return [
@@ -253,5 +301,6 @@ export function formatStats(s: Stats): string {
     windowBlock('Last 30 days', s.d30, s.prev30),
     `• Lead→paid conversion: ${s.conversion30}`,
     `• ${link(`${DASH}/subscriptions?status=canceled`, 'Churn')}: ${s.churn30}`,
+    renewalLine(s.renewals),
   ].join('\n');
 }
