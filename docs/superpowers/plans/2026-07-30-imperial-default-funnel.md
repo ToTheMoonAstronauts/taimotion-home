@@ -13,7 +13,7 @@
 
 ## Global Constraints
 
-- **Canonical storage is always metric.** `S.height_cm`, `S.weight_kg`, `S.goal_weight_kg`, `S.bmi` are the only persisted body values. Never store lb or ft in session state or the database.
+- **Canonical storage is always metric.** `S.height_cm`, `S.weight_kg`, `S.goal_weight_kg`, `S.bmi` are the canonical body values, always metric, and they are what the database receives. Never write an imperial number into a canonical field or a `*_kg`/`*_cm` column. Narrow exception: `S.answers.height_ft` / `S.answers.height_in` hold the raw ft/in the visitor typed, so back-navigation refills exactly what they entered — `S.answers` is a verbatim echo of input, never a source for calculation. Every computation and every DB write reads the canonical fields.
 - **`projDate()` / `projMonth()` always receive kilograms.** Their math is `~1 kg per 2 weeks` (`app.js:205-217`). Passing lb roughly doubles every projected date.
 - **Another session is active in this repo.** `supabase/functions/_shared/meta-capi.ts`, `meta-capi.test.ts`, and `stripe-webhook/index.ts` have uncommitted changes that are NOT ours. **Always `git add` explicit paths. Never `git add -A`, `git add .`, or `git commit -a`.**
 - **No new dependencies.** No npm packages, no build step. Browser JS must run as-is from `assets/`.
