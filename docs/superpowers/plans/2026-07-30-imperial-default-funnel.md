@@ -418,10 +418,19 @@ Then add `heightFtIn` as a sibling function immediately after `rInput` closes
     [ftIn, inIn].forEach(i => {
       i.onkeydown = (e) => { if (e.key === "Enter") { commit(); showErr(); if (valid()) go(1); } };
     });
-    keepVisible(ftIn, btn);
+    keepVisible([ftIn, inIn], btn);
     setTimeout(() => ftIn.focus(), 50);
   }
 ```
+
+`keepVisible` must be generalized to take one input or an array before this call
+works correctly. As originally written it binds `focus` to only the input passed in,
+and its `{ once: true }` blur handler unregisters the shared `visualViewport` resize
+listener — so passing just `ftIn` means tabbing ft→in permanently kills the
+keep-the-CTA-above-the-keyboard behavior for the rest of the screen. Attach `focus` to
+every element in the set, register the resize listener once, and tear it down only when
+`e.relatedTarget` is outside the set. Single-input callers (`rInput`, `rEmail`, `rName`)
+keep their current behavior, and must be smoke-checked after the change.
 
 - [ ] **Step 5: Clear the ft/in answers when switching to metric**
 
