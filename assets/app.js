@@ -50,6 +50,10 @@
     } catch (e) { /* no Intl at all: metric */ }
     return "metric";
   }
+  // A screen declares its two unit labels metric-first (units: ["kg","lb"]); which one is live
+  // is a session property, not a per-screen one, so every screen and all downstream copy agree.
+  function unitFor(scr) { return S.units === "imperial" ? scr.units[1] : scr.units[0]; }
+  function setUnits(sys) { S.units = sys; save(); }
   function fresh() {
     return { id: uuid(), funnel: F.product, created_at: new Date().toISOString(),
       ab_test_name: F.abTestName || null, ab_test_variant: PAGE_VARIANT,
@@ -378,19 +382,32 @@
 
   function rInput(scr, root) {
     head(scr, root);
-    let unit = S.answers[scr.id + "_unit"] || scr.units[0];
+    let unit = unitFor(scr);
     const wrap = el("div", "inputwrap");
     const tog = el("div", "unit-toggle");
-    scr.units.forEach(u => {
+    scr.units.forEach((u, i) => {
       const b = el("button", u === unit ? "on" : "", u);
-      b.onclick = () => { unit = u; S.answers[scr.id + "_unit"] = u; save(); rInput(scr, (root.innerHTML = "", root)); };
+      // Convert the value in place instead of clearing it: the canonical answer is already in
+      // metric, so re-rendering from S is both simpler and drift-free.
+      b.onclick = () => {
+        if (u === unit) return;
+        setUnits(i === 1 ? "imperial" : "metric");
+        rInput(scr, (root.innerHTML = "", root));
+      };
       tog.appendChild(b);
     });
     wrap.appendChild(tog);
     const field = el("div", "field");
     const inp = el("input"); inp.type = "number"; inp.inputMode = "decimal";
     inp.placeholder = ({ height: "Height", weight: "Current weight", goal_weight: "Goal weight" }[scr.field] || "Enter a number");
-    inp.value = S.answers[scr.id] || "";
+    // Derive from the canonical metric value so a unit switch converts rather than clears.
+    // S.answers[scr.id] is only a fallback for a value typed but not yet committed.
+    inp.value = (() => {
+      const kg = scr.field === "weight" ? S.weight_kg : scr.field === "goal_weight" ? S.goal_weight_kg : null;
+      if (kg != null) return String(unit === "lb" ? Math.round(kg * 2.20462) : Math.round(kg * 10) / 10);
+      if (scr.field === "height" && S.height_cm != null) return String(S.height_cm);
+      return S.answers[scr.id] || "";
+    })();
     field.appendChild(inp); field.appendChild(el("span", "u", unit));
     wrap.appendChild(field);
     const err = el("div", "input-err"); err.style.display = "none"; wrap.appendChild(err);
@@ -447,7 +464,7 @@
   function rSlider(scr, root) {
     if (scr.field === "goal_weight" && !S.weight_kg) return rInput(scr, root);
     head(scr, root);
-    let unit = S.answers[scr.id + "_unit"] || scr.units[0];
+    let unit = unitFor(scr);
     const fromKg = (kg) => unit === "lb" ? Math.round(kg * 2.20462) : Math.round(kg);
 
     // Bounds in kg, then projected into the display unit so a kg<->lb switch can't drift the value:
@@ -464,9 +481,13 @@
 
     const wrap = el("div", "inputwrap");
     const tog = el("div", "unit-toggle");
-    scr.units.forEach(u => {
+    scr.units.forEach((u, i) => {
       const b = el("button", u === unit ? "on" : "", u);
-      b.onclick = () => { unit = u; S.answers[scr.id + "_unit"] = u; save(); root.innerHTML = ""; rSlider(scr, root); };
+      b.onclick = () => {
+        if (u === unit) return;
+        setUnits(i === 1 ? "imperial" : "metric");
+        root.innerHTML = ""; rSlider(scr, root);
+      };
       tog.appendChild(b);
     });
     wrap.appendChild(tog);
@@ -496,7 +517,6 @@
     }
     function commit() {
       S.answers[scr.id] = String(val);
-      S.answers[scr.id + "_unit"] = unit;
       if (scr.field === "goal_weight") S.goal_weight_kg = toKg(val, unit);
       save();
       fb.innerHTML = "";
