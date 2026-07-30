@@ -94,7 +94,7 @@
     const total = Math.round((+cm || 0) / 2.54);
     return { ft: Math.floor(total / 12), inch: total % 12 };
   }
-  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }   // metric path + legacy decimal-ft sessions
+  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }   // "cm" is the live path; "ft" kept defensively — not reached by heightFtIn
   function toKg(v, u) { return u === "lb" ? +(v / 2.20462).toFixed(1) : v; }
   function bmi() { if (!S.height_cm || !S.weight_kg) return null; const m = S.height_cm / 100; return +(S.weight_kg / (m * m)).toFixed(1); }
   function bmiCategory(b) { return b < 18.5 ? "underweight" : b < 25 ? "a healthy weight" : b < 30 ? "in the overweight range" : "in the obese range"; }
@@ -510,7 +510,7 @@
     [ftIn, inIn].forEach(i => {
       i.onkeydown = (e) => { if (e.key === "Enter") { commit(); showErr(); if (valid()) go(1); } };
     });
-    keepVisible(ftIn, btn);
+    keepVisible([ftIn, inIn], btn);
     setTimeout(() => ftIn.focus(), 50);
   }
 
@@ -815,10 +815,20 @@
 
   // Keep the CTA visible above the mobile keyboard: scroll it into view on focus,
   // and again when the keyboard opens/closes (visualViewport resize).
+  // `inp` may be a single input or an array of sibling inputs (e.g. heightFtIn's ft+in
+  // pair): the shared resize listener must survive focus moving between siblings and
+  // tear down only once focus leaves the whole set — otherwise tabbing ft->in would
+  // permanently drop keyboard tracking for the rest of the screen.
   function keepVisible(inp, btn) {
+    const els = [].concat(inp);
     const bring = () => setTimeout(() => { try { btn.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {} }, 320);
-    inp.addEventListener("focus", bring);
-    if (window.visualViewport) { const h = () => bring(); window.visualViewport.addEventListener("resize", h); inp.addEventListener("blur", () => window.visualViewport.removeEventListener("resize", h), { once: true }); }
+    els.forEach(e => e.addEventListener("focus", bring));
+    if (window.visualViewport) {
+      const h = () => bring();
+      window.visualViewport.addEventListener("resize", h);
+      const onBlur = (e) => { if (els.includes(e.relatedTarget)) return; window.visualViewport.removeEventListener("resize", h); };
+      els.forEach(e => e.addEventListener("blur", onBlur));
+    }
   }
 
   function rEmail(scr, root) {
