@@ -254,7 +254,10 @@
     // projDate does its arithmetic in kg (~1kg / 2 weeks), so it gets loseKg — never the
     // display value. Feeding it pounds would roughly double every projected date.
     const now = nowKg ? kgToDisp(nowKg) : 0, goal = goalKg ? kgToDisp(goalKg) : 0;
-    const lose = loseKg ? kgToDisp(loseKg) : 0;
+    // Derive the displayed delta from the displayed pair, never from loseKg: rounding each
+    // value independently lets "111 lb − 101 lb = 11 lb" reach the screen, and a visitor can
+    // spot that. Being up to 1 unit off the true kg delta is invisible; bad arithmetic is not.
+    const lose = now && goal ? Math.max(0, now - goal) : 0;
     const pct = nowKg && loseKg ? Math.round((loseKg / nowKg) * 100) : 0;
     return t.replace(/\{decade\}/g, decade).replace(/\{genderPlural\}/g, gp).replace(/\{name\}/g, S.name || "")
       .replace(/\{goal\}/g, goal || "your goal").replace(/\{now\}/g, now || "")
