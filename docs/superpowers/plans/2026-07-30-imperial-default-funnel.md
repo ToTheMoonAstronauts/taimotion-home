@@ -521,13 +521,26 @@ Replace the body of `personalize` (`app.js:193-201`) from the `const now` line d
     // projDate does its arithmetic in kg (~1kg / 2 weeks), so it gets loseKg — never the
     // display value. Feeding it pounds would roughly double every projected date.
     const now = nowKg ? kgToDisp(nowKg) : 0, goal = goalKg ? kgToDisp(goalKg) : 0;
-    const lose = loseKg ? kgToDisp(loseKg) : 0;
+    // Derive the displayed delta from the displayed pair, never from loseKg: rounding each
+    // value independently lets "111 lb − 101 lb = 11 lb" reach the screen, and a visitor can
+    // spot that. Being up to 1 unit off the true kg delta is invisible; bad arithmetic is not.
+    const lose = now && goal ? Math.max(0, now - goal) : 0;
     const pct = nowKg && loseKg ? Math.round((loseKg / nowKg) * 100) : 0;
     return t.replace(/\{decade\}/g, decade).replace(/\{genderPlural\}/g, gp).replace(/\{name\}/g, S.name || "")
       .replace(/\{goal\}/g, goal || "your goal").replace(/\{now\}/g, now || "")
       .replace(/\{lose\}/g, lose).replace(/\{pct\}/g, pct)
       .replace(/\{wu\}/g, wLabel()).replace(/\{projdate\}/g, projDate(loseKg));
 ```
+
+Two human decisions recorded 2026-07-30, both settled during Task 4's review:
+
+- **`kgToDisp` rounds in metric mode too**, so metric copy reads "73kg" where it previously
+  read "72.6kg". Accepted: the goal-weight slider steps in whole units so this is close to a
+  no-op in practice, and it keeps both modes formatting identically. Do not "restore" decimals.
+- **`{pct}` stays computed from kilograms**, deliberately NOT derived from the displayed pair.
+  Deriving it would make the percentage differ between imperial and metric — trading a
+  within-screen inconsistency for a cross-mode one that is harder to reason about, and the
+  visitor only ever sees one mode.
 
 - [ ] **Step 5: Tokenize the config copy**
 
