@@ -55,11 +55,11 @@ window.FUNNEL = {
         { value: "arms", label: "Arms", img: "assets/8_arms.webp" }, { value: "butt", label: "Butt", img: "assets/8_butt.webp" },
         { value: "face_neck", label: "Face and neck", img: "assets/8_neck.webp" }] },
 
-    { id: "height", type: "input", section: "My profile",
+    { id: "height", type: "slider", section: "My profile",
       q: "What's your height?", sub: "We'll use this information to determine your ideal weight loss pace",
       units: ["cm", "ft"], field: "height" },
 
-    { id: "weight", type: "input", section: "My profile",
+    { id: "weight", type: "slider", section: "My profile",
       q: "What's your current weight?", units: ["kg", "lb"], field: "weight", computeBMI: true },
 
     { id: "goal_weight", type: "slider", section: "My profile",

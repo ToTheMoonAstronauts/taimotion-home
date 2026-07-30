@@ -523,35 +523,85 @@
     setTimeout(() => ftIn.focus(), 50);
   }
 
-  // ---- bounded slider ----
-  // For goal weight: the bounds ARE the validation, so rInput's "your goal should be below your
-  // current weight" dead end is structurally impossible — every position on the track is valid,
-  // so Continue is never disabled. Falls back to rInput when the bound source is missing
-  // (deep links / ?step= jumps can land here with no weight recorded).
-  function rSlider(scr, root) {
-    if (scr.field === "goal_weight" && !S.weight_kg) return rInput(scr, root);
-    head(scr, root);
-    let unit = unitFor(scr);
-    const fromKg = (kg) => unit === "lb" ? Math.round(kg * 2.20462) : Math.round(kg);
-
-    // Bounds in kg, then projected into the display unit so a kg<->lb switch can't drift the value:
-    // the canonical answer stays S.goal_weight_kg and the thumb is re-derived from it.
+  // ---- bounded sliders ----
+  // One renderer for every numeric screen (height, weight, goal weight). The track steps in whole
+  // display units and the bounds encode the validation, so no position is invalid and there is no
+  // error state to recover from. Canonical state stays metric (height_cm / weight_kg /
+  // goal_weight_kg) and the thumb is always re-derived from it, so a unit switch converts rather
+  // than drifts. Imperial height steps in whole inches but READS as ft+in — one thumb, so the
+  // ft/in field pair (and its focus-juggling) isn't needed here.
+  //
+  // prefill: goal_weight commits its default because it is derived from a real answer (~10% of the
+  // weight they just gave) and the projection screens need {goal}/{lose}/{pct} to resolve. height
+  // and weight must NOT prefill — committing a midpoint nobody chose would fabricate the body data
+  // that BMI, the projections and the whole plan are built on, and it would be indistinguishable
+  // from a real answer. Those two require a deliberate move before Continue enables.
+  function sliderSpec(scr) {
+    const imp = S.units === "imperial";
+    const notes = (v) => null;
+    if (scr.field === "height") {
+      return imp
+        ? { unit: "in", min: 55, max: 79, def: 65, prefill: false,
+            canon: () => S.height_cm, from: (cm) => Math.round(cm / 2.54),
+            set: (v) => { S.height_cm = Math.round(v * 2.54); S.answers.height_ft = String(Math.floor(v / 12)); S.answers.height_in = String(v % 12); },
+            big: (v) => `<span class="sl-num">${Math.floor(v / 12)}</span><span class="sl-u">ft</span><span class="sl-num">${v % 12}</span><span class="sl-u">in</span>`,
+            end: (v) => `${Math.floor(v / 12)}'${v % 12}"`, say: (v) => `${Math.floor(v / 12)} feet ${v % 12} inches`, extra: notes }
+        : { unit: "cm", min: 140, max: 200, def: 165, prefill: false,
+            canon: () => S.height_cm, from: (cm) => Math.round(cm),
+            set: (v) => { S.height_cm = v; delete S.answers.height_ft; delete S.answers.height_in; },
+            big: (v) => `<span class="sl-num">${v}</span><span class="sl-u">cm</span>`,
+            end: (v) => v + " cm", say: (v) => v + " cm", extra: notes };
+    }
+    const wExtra = (v) => {
+      if (!scr.computeBMI || !S.bmi) return null;
+      return `Your BMI is <b>${S.bmi}</b> — ${bmiCategory(S.bmi)}. We'll use this to set a healthy, realistic pace.`;
+    };
+    if (scr.field === "weight") {
+      const base = { prefill: false, canon: () => S.weight_kg, extra: wExtra };
+      return imp
+        ? Object.assign(base, { unit: "lb", min: 88, max: 350, def: 165,
+            from: (kg) => Math.round(kg * 2.20462), set: (v) => { S.weight_kg = toKg(v, "lb"); S.bmi = bmi(); } })
+        : Object.assign(base, { unit: "kg", min: 40, max: 159, def: 75,
+            from: (kg) => Math.round(kg), set: (v) => { S.weight_kg = v; S.bmi = bmi(); } });
+    }
+    // goal weight: bounds derive from the weight just given, so "below your current weight" and
+    // "check your weight value" become unreachable rather than validated.
     const now = S.weight_kg;
-    let hiKg = Math.max(35, Math.round(now - 1));                        // must stay below current weight
+    const hiKg = Math.max(35, Math.round(now - 1));
     const m = S.height_cm ? S.height_cm / 100 : 0;
-    let loKg = m ? Math.round(18.5 * m * m) : Math.round(now * 0.65);    // healthy-BMI floor when height is known
+    let loKg = m ? Math.round(18.5 * m * m) : Math.round(now * 0.65);   // healthy-BMI floor when height is known
     loKg = Math.max(40, Math.min(loKg, hiKg - 5));
-    if (loKg >= hiKg) loKg = Math.max(1, hiKg - 5);                      // very light starting weight
-    const lo = fromKg(loKg), hi = fromKg(hiKg);
-    // Default thumb: a gentle ~10% target — the pace the next screens (AHA 5%, projections) talk about.
-    let val = Math.min(hi, Math.max(lo, fromKg(S.goal_weight_kg || now * 0.9)));
+    if (loKg >= hiKg) loKg = Math.max(1, hiKg - 5);                    // very light starting weight
+    const conv = imp ? (kg) => Math.round(kg * 2.20462) : (kg) => Math.round(kg);
+    return {
+      unit: imp ? "lb" : "kg", min: conv(loKg), max: conv(hiKg), def: conv(now * 0.9), prefill: true,
+      canon: () => S.goal_weight_kg, from: conv,
+      set: (v) => { S.goal_weight_kg = toKg(v, imp ? "lb" : "kg"); },
+      extra: () => {
+        const loseKg = Math.max(0, now - (S.goal_weight_kg || 0));
+        const lose = imp ? Math.round(loseKg * 2.20462) : Math.round(loseKg);
+        return `That's <b>${lose} ${imp ? "lb" : "kg"}</b> to lose — about <b>${Math.round((loseKg / now) * 100)}%</b> of your body weight.`;
+      },
+    };
+  }
+
+  function rSlider(scr, root) {
+    if (scr.field === "goal_weight" && !S.weight_kg) return rInput(scr, root);   // deep link / ?step= jump
+    head(scr, root);
+    const sp = sliderSpec(scr);
+    const hasStored = sp.canon() != null;
+    let touched = sp.prefill || hasStored;
+    let val = Math.min(sp.max, Math.max(sp.min, hasStored ? sp.from(sp.canon()) : sp.def));
+    const big = sp.big || ((v) => `<span class="sl-num">${v}</span><span class="sl-u">${sp.unit}</span>`);
+    const end = sp.end || ((v) => v + " " + sp.unit);
+    const say = sp.say || ((v) => v + " " + sp.unit);
 
     const wrap = el("div", "inputwrap");
     const tog = el("div", "unit-toggle");
     scr.units.forEach((u, i) => {
-      const b = el("button", u === unit ? "on" : "", u);
+      const b = el("button", (i === 1) === (S.units === "imperial") ? "on" : "", u);
       b.onclick = () => {
-        if (u === unit) return;
+        if ((i === 1) === (S.units === "imperial")) return;
         setUnits(i === 1 ? "imperial" : "metric");
         root.innerHTML = ""; rSlider(scr, root);
       };
@@ -559,38 +609,28 @@
     });
     wrap.appendChild(tog);
 
-    const read = el("div", "sl-read");
-    const num = el("span", "sl-num", String(val));
-    read.appendChild(num); read.appendChild(el("span", "sl-u", unit));
+    const read = el("div", "sl-read", big(val));
     wrap.appendChild(read);
-
     const rail = el("div", "sl-rail");
     const inp = el("input"); inp.type = "range";
-    inp.min = lo; inp.max = hi; inp.step = 1; inp.value = val;
-    inp.setAttribute("aria-label", (scr.q || "Goal") + " in " + unit);
+    inp.min = sp.min; inp.max = sp.max; inp.step = 1; inp.value = val;
+    inp.setAttribute("aria-label", personalize(scr.q || "Value"));
     rail.appendChild(inp); wrap.appendChild(rail);
     const ends = el("div", "sl-ends");
-    ends.appendChild(el("span", "", lo + " " + unit));
-    ends.appendChild(el("span", "", hi + " " + unit));
+    ends.appendChild(el("span", "", end(sp.min)));
+    ends.appendChild(el("span", "", end(sp.max)));
     wrap.appendChild(ends);
-
     const fb = el("div"); wrap.appendChild(fb);
     root.appendChild(wrap);
 
     function paint() {
-      num.textContent = val;
-      inp.style.setProperty("--pct", (hi > lo ? ((val - lo) / (hi - lo)) * 100 : 100).toFixed(2) + "%");
-      inp.setAttribute("aria-valuetext", val + " " + unit);
-    }
-    function commit() {
-      S.answers[scr.id] = String(val);
-      if (scr.field === "goal_weight") S.goal_weight_kg = toKg(val, unit);
-      save();
+      read.innerHTML = big(val);
+      inp.style.setProperty("--pct", (sp.max > sp.min ? ((val - sp.min) / (sp.max - sp.min)) * 100 : 100).toFixed(2) + "%");
+      inp.setAttribute("aria-valuetext", say(val));
       fb.innerHTML = "";
-      const loseKg = Math.max(0, now - (S.goal_weight_kg || 0));
-      const lose = unit === "lb" ? Math.round(loseKg * 2.20462) : Math.round(loseKg);
-      const pct = Math.round((loseKg / now) * 100);
-      fb.appendChild(el("div", "feedback", `That's <b>${lose} ${unit}</b> to lose — about <b>${pct}%</b> of your body weight.`));
+      if (!touched) { fb.appendChild(el("div", "sl-hint", "Slide to set your answer")); return; }
+      const x = sp.extra(val);
+      if (x) fb.appendChild(el("div", "feedback", x));
       if (scr.note) {
         const card = el("div", "info-block");
         if (scr.noteTitle) card.appendChild(el("div", "ib-title", scr.noteTitle));
@@ -598,9 +638,12 @@
         fb.appendChild(card);
       }
     }
-    inp.oninput = () => { val = parseFloat(inp.value); paint(); commit(); };
-    paint(); commit();                       // pre-fill so {goal}/{lose}/{pct} downstream always resolve
-    ctaBar("Continue", () => go(1));
+    function commit() { S.answers[scr.id] = String(val); sp.set(val); save(); }
+
+    if (touched) commit();
+    paint();
+    const btn = ctaBar("Continue", () => go(1), !touched);
+    inp.oninput = () => { val = parseFloat(inp.value); touched = true; commit(); paint(); btn.disabled = false; };
   }
 
   function rInfo(scr, root) {
