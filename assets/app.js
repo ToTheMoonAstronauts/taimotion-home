@@ -179,7 +179,7 @@
       const sc = $("#section"); if (sc) sc.style.display = _noBar ? "none" : "block";  // section label default is CSS none, so set block explicitly
       const bk = $("#back"); if (bk) bk.style.display = _interim ? "none" : "";
       const qb = $(".qbrand"); if (qb) qb.style.display = (scr.type === "email" || scr.type === "name") ? "inline-flex" : "none"; }
-    ({ single: rSingle, multi: rMulti, input: rInput, info: rInfo,
+    ({ single: rSingle, multi: rMulti, input: rInput, slider: rSlider, info: rInfo,
        loader: rLoader, email: rEmail, name: rName, goals: rGoals }[scr.type] || rInfo)(scr, root);
     window.scrollTo(0, 0);
   }
@@ -273,7 +273,9 @@
     } else if (o.emoji) {
       row.appendChild(el("span", "emoji", o.emoji));
     }
-    row.appendChild(el("span", "lab", o.label));
+    // The ld layout is a 3-4 across grid (~100px/column), so ordinal scales supply a short
+    // tick label via o.short; the full wording stays in o.label for every other layout.
+    row.appendChild(el("span", "lab", (scr.layout === "ld" && o.short) || o.label));
     if (scr.type === "multi") row.appendChild(el("span", "check", selected ? "✓" : ""));
     row.onclick = () => onClick(row);
     return row;
@@ -292,7 +294,10 @@
       root.appendChild(card);
     }
     const box = el("div", wrapCls);
-    if (scr.layout === "ld") box.style.gridTemplateColumns = `repeat(${scr.options.length},1fr)`;
+    if (scr.layout === "ld") {
+      box.style.gridTemplateColumns = `repeat(${scr.options.length},minmax(0,1fr))`;
+      if (scr.options.length >= 4) box.classList.add("ld-4");
+    }
     scr.options.forEach(o => box.appendChild(optRow(scr, o, false, (row) => {
       if (box.classList.contains("locked")) return;
       box.classList.add("locked"); row.classList.add("sel");
@@ -392,6 +397,83 @@
     inp.onkeydown = (e) => { if (e.key === "Enter") { commit(); showErr(); if (valid()) go(1); } };
     keepVisible(inp, btn);
     setTimeout(() => inp.focus(), 50);
+  }
+
+  // ---- bounded slider ----
+  // For goal weight: the bounds ARE the validation, so rInput's "your goal should be below your
+  // current weight" dead end is structurally impossible — every position on the track is valid,
+  // so Continue is never disabled. Falls back to rInput when the bound source is missing
+  // (deep links / ?step= jumps can land here with no weight recorded).
+  function rSlider(scr, root) {
+    if (scr.field === "goal_weight" && !S.weight_kg) return rInput(scr, root);
+    head(scr, root);
+    let unit = S.answers[scr.id + "_unit"] || scr.units[0];
+    const fromKg = (kg) => unit === "lb" ? Math.round(kg * 2.20462) : Math.round(kg);
+
+    // Bounds in kg, then projected into the display unit so a kg<->lb switch can't drift the value:
+    // the canonical answer stays S.goal_weight_kg and the thumb is re-derived from it.
+    const now = S.weight_kg;
+    let hiKg = Math.max(35, Math.round(now - 1));                        // must stay below current weight
+    const m = S.height_cm ? S.height_cm / 100 : 0;
+    let loKg = m ? Math.round(18.5 * m * m) : Math.round(now * 0.65);    // healthy-BMI floor when height is known
+    loKg = Math.max(40, Math.min(loKg, hiKg - 5));
+    if (loKg >= hiKg) loKg = Math.max(1, hiKg - 5);                      // very light starting weight
+    const lo = fromKg(loKg), hi = fromKg(hiKg);
+    // Default thumb: a gentle ~10% target — the pace the next screens (AHA 5%, projections) talk about.
+    let val = Math.min(hi, Math.max(lo, fromKg(S.goal_weight_kg || now * 0.9)));
+
+    const wrap = el("div", "inputwrap");
+    const tog = el("div", "unit-toggle");
+    scr.units.forEach(u => {
+      const b = el("button", u === unit ? "on" : "", u);
+      b.onclick = () => { unit = u; S.answers[scr.id + "_unit"] = u; save(); root.innerHTML = ""; rSlider(scr, root); };
+      tog.appendChild(b);
+    });
+    wrap.appendChild(tog);
+
+    const read = el("div", "sl-read");
+    const num = el("span", "sl-num", String(val));
+    read.appendChild(num); read.appendChild(el("span", "sl-u", unit));
+    wrap.appendChild(read);
+
+    const rail = el("div", "sl-rail");
+    const inp = el("input"); inp.type = "range";
+    inp.min = lo; inp.max = hi; inp.step = 1; inp.value = val;
+    inp.setAttribute("aria-label", (scr.q || "Goal") + " in " + unit);
+    rail.appendChild(inp); wrap.appendChild(rail);
+    const ends = el("div", "sl-ends");
+    ends.appendChild(el("span", "", lo + " " + unit));
+    ends.appendChild(el("span", "", hi + " " + unit));
+    wrap.appendChild(ends);
+
+    const fb = el("div"); wrap.appendChild(fb);
+    root.appendChild(wrap);
+
+    function paint() {
+      num.textContent = val;
+      inp.style.setProperty("--pct", (hi > lo ? ((val - lo) / (hi - lo)) * 100 : 100).toFixed(2) + "%");
+      inp.setAttribute("aria-valuetext", val + " " + unit);
+    }
+    function commit() {
+      S.answers[scr.id] = String(val);
+      S.answers[scr.id + "_unit"] = unit;
+      if (scr.field === "goal_weight") S.goal_weight_kg = toKg(val, unit);
+      save();
+      fb.innerHTML = "";
+      const loseKg = Math.max(0, now - (S.goal_weight_kg || 0));
+      const lose = unit === "lb" ? Math.round(loseKg * 2.20462) : Math.round(loseKg);
+      const pct = Math.round((loseKg / now) * 100);
+      fb.appendChild(el("div", "feedback", `That's <b>${lose} ${unit}</b> to lose — about <b>${pct}%</b> of your body weight.`));
+      if (scr.note) {
+        const card = el("div", "info-block");
+        if (scr.noteTitle) card.appendChild(el("div", "ib-title", scr.noteTitle));
+        card.appendChild(el("div", "ib-body", scr.note));
+        fb.appendChild(card);
+      }
+    }
+    inp.oninput = () => { val = parseFloat(inp.value); paint(); commit(); };
+    paint(); commit();                       // pre-fill so {goal}/{lose}/{pct} downstream always resolve
+    ctaBar("Continue", () => go(1));
   }
 
   function rInfo(scr, root) {
@@ -783,7 +865,7 @@
       if (scr.femaleOnly && S.gender === "male") return;       // skip female-only screens for men
       if (scr.type === "single") S.answers[scr.id] = rnd(scr.options).value;
       else if (scr.type === "multi") { const opts = scr.options.filter(o => !(o.femaleOnly && S.gender === "male")); const n = 1 + Math.floor(Math.random() * Math.min(2, opts.length)); S.answers[scr.id] = [...opts].sort(() => Math.random() - 0.5).slice(0, n).map(o => o.value); }
-      else if (scr.type === "input") S.answers[scr.id] = String(scr.field === "height" ? S.height_cm : scr.field === "weight" ? S.weight_kg : S.goal_weight_kg);
+      else if (scr.type === "input" || scr.type === "slider") S.answers[scr.id] = String(scr.field === "height" ? S.height_cm : scr.field === "weight" ? S.weight_kg : S.goal_weight_kg);
     });
     // Target: ?step=N (matches the header step tag, N = index+2). Default = email capture step.
     const stepParam = qp.get("step") || qp.get("goto");

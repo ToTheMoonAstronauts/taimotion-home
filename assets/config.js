@@ -4,10 +4,14 @@
  * no verbatim marketing prose, no fabricated stats, no fake sources, no invented testimonials/counts.
  * Flow: gender (gate) -> age (gate) -> these screens -> email -> name -> goals -> checkout.
  *
- * Types: single | multi | input | info | loader | email | name | goals
+ * Types: single | multi | input | slider | info | loader | email | name | goals
+ *   slider = bounded numeric (needs units + field); bounds encode the validation, so there is no
+ *   invalid position and Continue is never disabled. Falls back to `input` if the bound source
+ *   (e.g. weight_kg for goal_weight) is missing.
  * Flags: section, layout("cards"|"ld"), statement, sub, image, full, cardImg, photos, chart,
  *        femaleOnly, personalize, safetyNote, computeBMI, units, field, figure,
- *        noneValue/noneLabel/noneEmoji/noneImg, per, cards, options[].img
+ *        noneValue/noneLabel/noneEmoji/noneImg, per, cards, options[].img,
+ *        options[].short (ld only — short tick label for the narrow grid columns)
  */
 window.FUNNEL = {
   product: "chair-taichi",
@@ -58,7 +62,7 @@ window.FUNNEL = {
     { id: "weight", type: "input", section: "My profile",
       q: "What's your current weight?", units: ["kg", "lb"], field: "weight", computeBMI: true },
 
-    { id: "goal_weight", type: "input", section: "My profile",
+    { id: "goal_weight", type: "slider", section: "My profile",
       q: "Got it! And what's your goal weight?",
       sub: "An estimate will do - you can easily change this later.",
       units: ["kg", "lb"], field: "goal_weight",
@@ -183,11 +187,11 @@ window.FUNNEL = {
       body: "Next, tell us more about your lifestyle so we can help you hit your goal even more effectively." },
 
     // ===================== Lifestyle =====================
-    { id: "tension", type: "single", section: "Lifestyle",
+    { id: "tension", type: "single", section: "Lifestyle", layout: "ld",
       q: "Do you ever feel mentally tense or on edge?",
-      options: [{ value: "lots", label: "I feel that a lot lately", emoji: "😫" },
-        { value: "some", label: "I have some ups and downs", emoji: "😐" },
-        { value: "steady", label: "I feel mostly steady", emoji: "😌" }] },
+      options: [{ value: "lots", label: "I feel that a lot lately", short: "A lot lately", emoji: "😫" },
+        { value: "some", label: "I have some ups and downs", short: "Ups & downs", emoji: "😐" },
+        { value: "steady", label: "I feel mostly steady", short: "Mostly steady", emoji: "😌" }] },
 
     { id: "intro_stress", type: "info", stressChart: true, headerTop: true,
       title: "Reduce stress and cut anxiety by 42% just by doing Chair Tai Chi",
@@ -210,10 +214,10 @@ window.FUNNEL = {
       title: "Feel calmer and more focused in just 2 weeks",
       body: "Chair Tai Chi boosts brain circulation and improves energy balance — helping you feel **sharper, more motivated, and emotionally steady.**\n\nSource: Harvard Health Publishing" },
 
-    { id: "rested", type: "single", section: "Lifestyle",
+    { id: "rested", type: "single", section: "Lifestyle", layout: "ld",
       q: "How often do you wake up feeling rested?",
-      options: [{ value: "always", label: "Always", emoji: "😊" }, { value: "often", label: "Frequently", emoji: "😌" },
-        { value: "rare", label: "Infrequently", emoji: "🤭" }, { value: "never", label: "Never", emoji: "😴" }] },
+      options: [{ value: "always", label: "Always", emoji: "😊" }, { value: "often", label: "Frequently", short: "Often", emoji: "😌" },
+        { value: "rare", label: "Infrequently", short: "Rarely", emoji: "🤭" }, { value: "never", label: "Never", emoji: "😴" }] },
 
     { id: "sleep_improve", type: "multi", section: "Lifestyle",
       q: "Is there anything you want to improve about your sleep?", sub: "Choose all that apply",
@@ -231,11 +235,11 @@ window.FUNNEL = {
         { value: "plant", label: "Fully plant-based", emoji: "🌱" }, { value: "pesc", label: "Pescatarian", emoji: "🍤" }, { value: "lactose", label: "Lactose-free", emoji: "🥛" },
         { value: "gluten", label: "Gluten-free", emoji: "🥖" }, { value: "keto", label: "Keto", emoji: "🥑" }, { value: "other", label: "Other", emoji: "🍽️" }] },
 
-    { id: "produce", type: "single", section: "Lifestyle",
+    { id: "produce", type: "single", section: "Lifestyle", layout: "ld",
       q: "How's your fruit and vegetable intake?", sub: "Generally, how many fruit and veggies do you eat a day?",
-      options: [{ value: "low", label: "None or a little", emoji: "🙅" },
-        { value: "fair", label: "A fair bit", emoji: "🍎" },
-        { value: "lots", label: "I might be a rabbit", emoji: "🥕" }] },
+      options: [{ value: "low", label: "None or a little", short: "Barely any", emoji: "🙅" },
+        { value: "fair", label: "A fair bit", short: "A fair bit", emoji: "🍎" },
+        { value: "lots", label: "I might be a rabbit", short: "Loads", emoji: "🥕" }] },
 
     { id: "intro_nutrition", type: "info", image: "assets/43b.jpg",
       title: "Support your metabolism for lasting results",
@@ -351,10 +355,12 @@ window.FUNNEL = {
         { value: "flex", label: "Improving flexibility" }, { value: "posture", label: "Getting better posture" },
         { value: "endurance", label: "Improving endurance" }, { value: "immune", label: "Boosting my immune system" }] },
 
-    { id: "pace", type: "single", section: "Lifestyle", sectionLabel: "Almost there",
+    // Options reordered fast -> between -> slow so the ld row reads as a left-to-right spectrum.
+    { id: "pace", type: "single", section: "Lifestyle", sectionLabel: "Almost there", layout: "ld",
       q: "Your Chair Tai Chi plan is ready! How quickly do you want to get in shape?",
-      options: [{ value: "fast", label: "As quickly as possible" }, { value: "slow", label: "Slow and steady does it" },
-        { value: "between", label: "Somewhere between the two" }] },
+      options: [{ value: "fast", label: "As quickly as possible", short: "Quickly", emoji: "⚡" },
+        { value: "between", label: "Somewhere between the two", short: "In between", emoji: "⚖️" },
+        { value: "slow", label: "Slow and steady does it", short: "Slow & steady", emoji: "🌱" }] },
 
     { id: "intro_paced", type: "info", image: "assets/65.webp",
       title: "Perfect — we adjusted your plan to match your pace!",
