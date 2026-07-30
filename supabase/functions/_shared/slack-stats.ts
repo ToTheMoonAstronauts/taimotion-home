@@ -8,8 +8,9 @@
 // - Subscriber stats count BASE, REAL subs only: exclude upsell subs
 //   (metadata.upsell_id — separate Stripe subs here, never members), internal
 //   test subs (metadata.test === '1', the TMTEST50 flow), and 100%-off-coupon
-//   subs. "New" additionally excludes incomplete/incomplete_expired — checkout
-//   creates the sub before payment, so those are abandoned carts.
+//   subs. New AND cancels additionally exclude incomplete/incomplete_expired —
+//   checkout creates the sub before payment, so those are abandoned carts, and
+//   Stripe stamps canceled_at when it expires them (that is NOT churn).
 // - Revenue = paid invoices > $0 (100%-off promos generate real $0 "paid"
 //   invoices) PLUS succeeded one-time upsell PaymentIntents (guides/upsells
 //   are ad-hoc PIs here, no invoice). Subscription-invoice PIs carry no
@@ -166,9 +167,13 @@ export async function gatherStats(deps: StatsDeps): Promise<Stats> {
         const plan = sub.metadata?.plan_id || sub.items?.data[0]?.price?.id || 'unknown';
         planMix[plan] = (planMix[plan] ?? 0) + 1;
       }
+      // Abandoned carts are neither signups NOR cancellations: Stripe expires
+      // unpaid subs to incomplete_expired and stamps canceled_at, so counting
+      // canceled_at unconditionally reports failed checkouts as churn.
       const realSignup = sub.status !== 'incomplete' && sub.status !== 'incomplete_expired';
+      if (!realSignup) continue;
       for (const k of keys) {
-        if (realSignup && inWindow(sub.created, windows[k][0], windows[k][1])) w[k].newSubs++;
+        if (inWindow(sub.created, windows[k][0], windows[k][1])) w[k].newSubs++;
         if (inWindow(sub.canceled_at, windows[k][0], windows[k][1])) w[k].cancels++;
       }
     }

@@ -88,6 +88,26 @@ Deno.test('gatherStats: actives, MRR, plan mix count only real base subs', async
   assertEquals(s.churn30, ((1 / 3) * 100).toFixed(1) + '%'); // 1 cancel / (2 actives + 1)
 });
 
+// Regression: abandoned checkouts are not churn. This funnel creates the sub
+// before the card is confirmed, so Stripe expires unpaid subs to
+// incomplete_expired AND stamps canceled_at — which used to inflate cancels
+// (35 reported for a week with 0 real cancellations).
+Deno.test('gatherStats: incomplete/incomplete_expired never count as cancellations', async () => {
+  const s = await gatherStats(deps({
+    subs: [
+      { status: 'active', created: daysAgo(3), metadata: { plan_id: '4w' }, items: weekly(2199) },
+      { status: 'incomplete_expired', created: daysAgo(4), canceled_at: daysAgo(3) }, // abandoned cart
+      { status: 'incomplete_expired', created: daysAgo(20), canceled_at: daysAgo(19) }, // abandoned cart
+      { status: 'incomplete', created: daysAgo(1), canceled_at: daysAgo(1) }, // still-pending cart
+      { status: 'canceled', created: daysAgo(40), canceled_at: daysAgo(2), metadata: { plan_id: '4w' } }, // real churn
+    ],
+  }));
+  assertEquals(s.d7.cancels, 1); // only the real one
+  assertEquals(s.d30.cancels, 1);
+  assertEquals(s.d7.newSubs, 1);
+  assertEquals(s.churn30, ((1 / 2) * 100).toFixed(1) + '%'); // 1 cancel / (1 active + 1)
+});
+
 Deno.test('gatherStats: revenue = paid invoices >$0 + upsell PIs; test subs skipped', async () => {
   const s = await gatherStats(deps({
     invoices: [
