@@ -19,6 +19,37 @@
   }
   const EXPLICIT_V = window.QUIZ_VARIANT ? String(window.QUIZ_VARIANT).toLowerCase() : null;  // only quiz-b/quiz-c set this
   const PAGE_VARIANT = EXPLICIT_V || "a";
+
+  // ---- measurement system ----
+  // Imperial is the default for US-shaped visitors; the funnel's audience is majority US.
+  // Regions where lb/ft is what people actually think in. GB is included deliberately: UK
+  // visitors read lb far more naturally than kg (stone is not offered — one unit per system).
+  const IMPERIAL_REGIONS = ["US", "GB", "LR", "MM"];
+  const IMPERIAL_TZ = ["America/New_York", "America/Chicago", "America/Denver",
+    "America/Los_Angeles", "America/Phoenix", "America/Anchorage", "Pacific/Honolulu"];
+  // Resolved ONCE per session and stored on S: a mid-funnel flip would reinterpret values the
+  // visitor already entered. ?units= wins so screenshots, Playwright and QA are reproducible —
+  // locale detection alone makes session replays impossible to reproduce deliberately.
+  function detectUnits() {
+    try {
+      const q = new URLSearchParams(location.search).get("units");
+      if (q === "imperial" || q === "metric") return q;
+    } catch (e) { /* malformed query string: fall through to locale */ }
+    const langs = navigator.languages && navigator.languages.length
+      ? navigator.languages : [navigator.language];
+    for (const l of langs) {
+      if (!l) continue;
+      try {
+        // "en-US" -> "US". Intl.Locale also resolves "en-Latn-US" and likelySubtags.
+        const r = (new Intl.Locale(l)).region;
+        if (r) return IMPERIAL_REGIONS.includes(r) ? "imperial" : "metric";
+      } catch (e) { /* malformed tag (e.g. "en_US") or no Intl.Locale: try the next candidate */ }
+    }
+    try {
+      if (IMPERIAL_TZ.includes(Intl.DateTimeFormat().resolvedOptions().timeZone)) return "imperial";
+    } catch (e) { /* no Intl at all: metric */ }
+    return "metric";
+  }
   function fresh() {
     return { id: uuid(), funnel: F.product, created_at: new Date().toISOString(),
       ab_test_name: F.abTestName || null, ab_test_variant: PAGE_VARIANT,
@@ -56,37 +87,6 @@
   function toKg(v, u) { return u === "lb" ? +(v / 2.20462).toFixed(1) : v; }
   function bmi() { if (!S.height_cm || !S.weight_kg) return null; const m = S.height_cm / 100; return +(S.weight_kg / (m * m)).toFixed(1); }
   function bmiCategory(b) { return b < 18.5 ? "underweight" : b < 25 ? "a healthy weight" : b < 30 ? "in the overweight range" : "in the obese range"; }
-
-  // ---- measurement system ----
-  // Imperial is the default for US-shaped visitors; the funnel's audience is majority US.
-  // Regions where lb/ft is what people actually think in. GB is included deliberately: UK
-  // visitors read lb far more naturally than kg (stone is not offered — one unit per system).
-  const IMPERIAL_REGIONS = ["US", "GB", "LR", "MM"];
-  const IMPERIAL_TZ = ["America/New_York", "America/Chicago", "America/Denver",
-    "America/Los_Angeles", "America/Phoenix", "America/Anchorage", "Pacific/Honolulu"];
-  // Resolved ONCE per session and stored on S: a mid-funnel flip would reinterpret values the
-  // visitor already entered. ?units= wins so screenshots, Playwright and QA are reproducible —
-  // locale detection alone makes session replays impossible to reproduce deliberately.
-  function detectUnits() {
-    try {
-      const q = new URLSearchParams(location.search).get("units");
-      if (q === "imperial" || q === "metric") return q;
-    } catch (e) { /* malformed query string: fall through to locale */ }
-    try {
-      const langs = navigator.languages && navigator.languages.length
-        ? navigator.languages : [navigator.language];
-      for (const l of langs) {
-        if (!l) continue;
-        // "en-US" -> "US". Intl.Locale also resolves "en-Latn-US" and likelySubtags.
-        const r = (new Intl.Locale(l)).region;
-        if (r) return IMPERIAL_REGIONS.includes(r) ? "imperial" : "metric";
-      }
-    } catch (e) { /* no Intl.Locale (old Safari): fall through to timezone */ }
-    try {
-      if (IMPERIAL_TZ.includes(Intl.DateTimeFormat().resolvedOptions().timeZone)) return "imperial";
-    } catch (e) { /* no Intl at all: metric */ }
-    return "metric";
-  }
 
   // Entry from the index/prelander always starts a brand-new quiz. This used to live in the
   // boot block at the bottom, but it must run BEFORE the variant reconciliation below —
