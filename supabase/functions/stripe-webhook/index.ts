@@ -1,6 +1,6 @@
 import Stripe from 'npm:stripe@17';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { sendPurchase } from '../_shared/meta-capi.ts';
+import { sendPurchase, sendUpsellPurchase } from '../_shared/meta-capi.ts';
 import { fmtCancelScheduled, fmtPaymentFailed, fmtRefund, fmtSubscriptionEnded, fmtSubscriptionPaid, fmtUpsellPaid, notifySlack } from '../_shared/slack.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2024-06-20' });
@@ -91,10 +91,17 @@ Deno.serve(async (req) => {
           if (subId) {
             try { meta = ((await stripe.subscriptions.retrieve(subId)).metadata || {}) as Record<string, string>; } catch (_) { /* best-effort; CAPI never breaks the webhook */ }
           }
-          await sendPurchase({
-            eventId: inv.id, email, value: (inv.amount_paid ?? 0) / 100, currency: inv.currency,
-            fbc: meta.fbc, clientIp: meta.client_ip, clientUserAgent: meta.client_ua, eventSourceUrl: meta.event_source_url,
-          });
+          // Skip internal test checkouts (TMTEST50 tags the sub metadata.test='1'): they are not
+          // customers, and reporting them fed Meta $0–$2 conversions. Mirrors the upsell branch.
+          // A recurring upsell is its own subscription, so its first invoice is an add-on sale, not
+          // a new customer — it goes out as UpsellPurchase, keeping Purchase = 1 per acquisition.
+          if (meta.test !== '1') {
+            const send = meta.upsell_id ? sendUpsellPurchase : sendPurchase;
+            await send({
+              eventId: inv.id, email, value: (inv.amount_paid ?? 0) / 100, currency: inv.currency,
+              fbc: meta.fbc, clientIp: meta.client_ip, clientUserAgent: meta.client_ua, eventSourceUrl: meta.event_source_url,
+            });
+          }
         }
         break;
       }
@@ -152,9 +159,12 @@ Deno.serve(async (req) => {
           }, { onConflict: 'id', ignoreDuplicates: true });
           const email = await emailForUser(db, pi.metadata.user_id);
           await notifySlack(fmtUpsellPaid(pi.metadata.upsell_id, email, pi.amount_received ?? 0, pi.currency, pi.metadata.test === '1'));
-          // CAPI Purchase for the upsell — skip internal test charges.
+          // CAPI UpsellPurchase — an add-on bought by an existing customer, NOT an acquisition.
+          // Sending Purchase here made one buyer read as 2–4 purchases in Ads Manager (inflated
+          // conversions, understated CPA); the revenue still reaches Meta under its own event name.
+          // Skip internal test charges.
           if (pi.metadata.test !== '1') {
-            await sendPurchase({
+            await sendUpsellPurchase({
               eventId: pi.id, email, value: (pi.amount_received ?? 0) / 100, currency: pi.currency,
               fbc: pi.metadata.fbc, clientIp: pi.metadata.client_ip, clientUserAgent: pi.metadata.client_ua, eventSourceUrl: pi.metadata.event_source_url,
             });

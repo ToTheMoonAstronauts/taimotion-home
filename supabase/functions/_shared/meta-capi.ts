@@ -69,6 +69,18 @@ export function buildPurchasePayload(
     { value: input.value, currency: input.currency }, testEventCode);
 }
 
+// An upsell is an add-on bought by an EXISTING customer, not a new acquisition, so it must not
+// use the Purchase event: Meta counts every Purchase, and one buyer taking base + two upsells
+// would read as three purchases (inflated conversions, understated cost-per-purchase). Revenue
+// still ships in custom_data, so a Custom Conversion on UpsellPurchase reports upsell $ and AOV.
+export function buildUpsellPurchasePayload(
+  input: PurchaseInput,
+  testEventCode?: string | null,
+): Record<string, unknown> {
+  return buildEventPayload('UpsellPurchase', input,
+    { value: input.value, currency: input.currency }, testEventCode);
+}
+
 export function buildLeadPayload(
   input: LeadInput,
   testEventCode?: string | null,
@@ -114,15 +126,30 @@ async function sendEvent(
   }
 }
 
+// Shared plumbing for the money events: threads value/currency onto the chosen payload builder.
+function sendValueEvent(
+  build: (input: PurchaseInput, testCode: string | null) => Record<string, unknown>,
+  args: SendArgs & { value: number; currency: string },
+  fetchImpl: typeof fetch,
+): Promise<void> {
+  return sendEvent(
+    (input, testCode) => build({ ...input, value: args.value, currency: args.currency }, testCode),
+    args, fetchImpl,
+  );
+}
+
 export function sendPurchase(
   args: SendArgs & { value: number; currency: string },
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
-  return sendEvent(
-    (input, testCode) => buildPurchasePayload(
-      { ...input, value: args.value, currency: args.currency }, testCode),
-    args, fetchImpl,
-  );
+  return sendValueEvent(buildPurchasePayload, args, fetchImpl);
+}
+
+export function sendUpsellPurchase(
+  args: SendArgs & { value: number; currency: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  return sendValueEvent(buildUpsellPurchasePayload, args, fetchImpl);
 }
 
 export function sendLead(

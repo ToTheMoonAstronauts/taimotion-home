@@ -1,5 +1,5 @@
 import { assertEquals, assert } from 'jsr:@std/assert@1';
-import { sha256Hex, buildFbc, buildPurchasePayload, buildLeadPayload, sendPurchase, sendLead } from './meta-capi.ts';
+import { sha256Hex, buildFbc, buildPurchasePayload, buildLeadPayload, buildUpsellPurchasePayload, sendPurchase, sendLead, sendUpsellPurchase } from './meta-capi.ts';
 
 Deno.test('buildLeadPayload assembles a Lead event without custom_data', () => {
   const body = buildLeadPayload({
@@ -124,6 +124,62 @@ Deno.test('sendPurchase posts to the graph endpoint with a hashed email', async 
     if (prevPixel === undefined) Deno.env.delete('META_PIXEL_ID'); else Deno.env.set('META_PIXEL_ID', prevPixel);
     if (prevToken === undefined) Deno.env.delete('META_CAPI_TOKEN'); else Deno.env.set('META_CAPI_TOKEN', prevToken);
     if (prevTestCode === undefined) Deno.env.delete('META_TEST_EVENT_CODE'); else Deno.env.set('META_TEST_EVENT_CODE', prevTestCode);
+  }
+});
+
+// Upsells are NOT acquisitions: they must never land on the Purchase event, or Ads Manager
+// counts one customer as two-to-four purchases and cost-per-purchase reads low.
+Deno.test('buildUpsellPurchasePayload uses the UpsellPurchase event name, not Purchase', () => {
+  const body = buildUpsellPurchasePayload({
+    eventId: 'pi_up1', emailHash: 'HASH', value: 25.99, currency: 'usd',
+    eventSourceUrl: 'https://taimotion.com/upsell1.html', eventTime: 1700000001,
+  });
+  const ev = (body.data as any[])[0];
+  assertEquals(ev.event_name, 'UpsellPurchase');
+  assertEquals(ev.event_id, 'pi_up1');
+  assertEquals(ev.action_source, 'website');
+  assertEquals(ev.event_source_url, 'https://taimotion.com/upsell1.html');
+  assertEquals(ev.user_data.em, ['HASH']);
+  assertEquals(ev.custom_data, { value: 25.99, currency: 'usd' });   // revenue still reported
+});
+
+Deno.test('sendUpsellPurchase posts an UpsellPurchase event with a hashed email', async () => {
+  const prevPixel = Deno.env.get('META_PIXEL_ID');
+  const prevToken = Deno.env.get('META_CAPI_TOKEN');
+  const prevTestCode = Deno.env.get('META_TEST_EVENT_CODE');
+  Deno.env.set('META_PIXEL_ID', '999');
+  Deno.env.set('META_CAPI_TOKEN', 'tok');
+  Deno.env.delete('META_TEST_EVENT_CODE');
+  try {
+    let seenBody: any = null;
+    const fake: typeof fetch = async (_url, init) => {
+      seenBody = JSON.parse(String((init as RequestInit).body));
+      return new Response('{"events_received":1}', { status: 200 });
+    };
+    await sendUpsellPurchase({ eventId: 'pi_up9', email: 'Test@Example.com', value: 25.99, currency: 'usd' }, fake);
+    assertEquals(seenBody.data[0].event_name, 'UpsellPurchase');
+    assertEquals(seenBody.data[0].custom_data, { value: 25.99, currency: 'usd' });
+    assertEquals(seenBody.data[0].user_data.em[0], await sha256Hex('test@example.com'));
+  } finally {
+    if (prevPixel === undefined) Deno.env.delete('META_PIXEL_ID'); else Deno.env.set('META_PIXEL_ID', prevPixel);
+    if (prevToken === undefined) Deno.env.delete('META_CAPI_TOKEN'); else Deno.env.set('META_CAPI_TOKEN', prevToken);
+    if (prevTestCode === undefined) Deno.env.delete('META_TEST_EVENT_CODE'); else Deno.env.set('META_TEST_EVENT_CODE', prevTestCode);
+  }
+});
+
+Deno.test('sendUpsellPurchase no-ops (no fetch) when credentials are missing', async () => {
+  const prevPixel = Deno.env.get('META_PIXEL_ID');
+  const prevToken = Deno.env.get('META_CAPI_TOKEN');
+  Deno.env.delete('META_PIXEL_ID');
+  Deno.env.delete('META_CAPI_TOKEN');
+  try {
+    let called = false;
+    const fake: typeof fetch = async () => { called = true; return new Response('{}'); };
+    await sendUpsellPurchase({ eventId: 'pi_up1', email: 'a@b.com', value: 25.99, currency: 'usd' }, fake);
+    assertEquals(called, false);
+  } finally {
+    if (prevPixel === undefined) Deno.env.delete('META_PIXEL_ID'); else Deno.env.set('META_PIXEL_ID', prevPixel);
+    if (prevToken === undefined) Deno.env.delete('META_CAPI_TOKEN'); else Deno.env.set('META_CAPI_TOKEN', prevToken);
   }
 });
 
