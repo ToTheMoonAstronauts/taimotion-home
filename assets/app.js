@@ -24,6 +24,7 @@
       ab_test_name: F.abTestName || null, ab_test_variant: PAGE_VARIANT,
       ab_test_source: EXPLICIT_V ? "url" : null,   // "url" = explicit page (outside the PostHog experiment), "flag" = experiment-assigned
       age_band: null, answers: {}, index: 0, email: null, name: null,
+      units: detectUnits(),
       height_cm: null, weight_kg: null, goal_weight_kg: null, bmi: null,
       selected_plan: null, status: "in_progress" };
   }
@@ -56,12 +57,51 @@
   function bmi() { if (!S.height_cm || !S.weight_kg) return null; const m = S.height_cm / 100; return +(S.weight_kg / (m * m)).toFixed(1); }
   function bmiCategory(b) { return b < 18.5 ? "underweight" : b < 25 ? "a healthy weight" : b < 30 ? "in the overweight range" : "in the obese range"; }
 
+  // ---- measurement system ----
+  // Imperial is the default for US-shaped visitors; the funnel's audience is majority US.
+  // Regions where lb/ft is what people actually think in. GB is included deliberately: UK
+  // visitors read lb far more naturally than kg (stone is not offered — one unit per system).
+  const IMPERIAL_REGIONS = ["US", "GB", "LR", "MM"];
+  const IMPERIAL_TZ = ["America/New_York", "America/Chicago", "America/Denver",
+    "America/Los_Angeles", "America/Phoenix", "America/Anchorage", "Pacific/Honolulu"];
+  // Resolved ONCE per session and stored on S: a mid-funnel flip would reinterpret values the
+  // visitor already entered. ?units= wins so screenshots, Playwright and QA are reproducible —
+  // locale detection alone makes session replays impossible to reproduce deliberately.
+  function detectUnits() {
+    try {
+      const q = new URLSearchParams(location.search).get("units");
+      if (q === "imperial" || q === "metric") return q;
+    } catch (e) { /* malformed query string: fall through to locale */ }
+    try {
+      const langs = navigator.languages && navigator.languages.length
+        ? navigator.languages : [navigator.language];
+      for (const l of langs) {
+        if (!l) continue;
+        // "en-US" -> "US". Intl.Locale also resolves "en-Latn-US" and likelySubtags.
+        const r = (new Intl.Locale(l)).region;
+        if (r) return IMPERIAL_REGIONS.includes(r) ? "imperial" : "metric";
+      }
+    } catch (e) { /* no Intl.Locale (old Safari): fall through to timezone */ }
+    try {
+      if (IMPERIAL_TZ.includes(Intl.DateTimeFormat().resolvedOptions().timeZone)) return "imperial";
+    } catch (e) { /* no Intl at all: metric */ }
+    return "metric";
+  }
+
   // Entry from the index/prelander always starts a brand-new quiz. This used to live in the
   // boot block at the bottom, but it must run BEFORE the variant reconciliation below —
   // otherwise a post-email user switching variants gets a session/screen-list mismatch.
   const _entry = new URLSearchParams(location.search);
   if (_entry.get("start") !== null || _entry.get("fresh") !== null || _entry.get("new") !== null) {
     S = fresh(); save();
+  }
+  // Sessions saved before the unit system existed carry per-screen unit answers instead of
+  // S.units. Derive from those rather than re-detecting: re-detecting could flip a visitor
+  // who already entered kg into imperial and silently reinterpret their numbers.
+  if (!S.units) {
+    const legacy = S.answers.weight_unit || S.answers.goal_weight_unit || S.answers.height_unit;
+    S.units = legacy ? (legacy === "lb" || legacy === "ft" ? "imperial" : "metric") : detectUnits();
+    save();
   }
   // ---- quiz-length A/B/C: adopt/reconcile the variant, then filter the screen list.
   // Two assignment paths share the same session fields: explicit URL pages (quiz-b/quiz-c set
