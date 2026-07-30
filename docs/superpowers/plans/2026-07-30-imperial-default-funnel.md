@@ -88,13 +88,28 @@ Using the playwright-skill, create a check with four contexts. Each navigates to
 | `locale: "en-US"`, `timezoneId: "America/New_York"` | `?start` | `"imperial"` |
 | `locale: "lt-LT"`, `timezoneId: "Europe/Vilnius"` | `?start` | `"metric"` |
 
+Plus two **cold-start** contexts — empty `localStorage` and **no query string at all**,
+navigating to plain `http://localhost:8765/quiz.html`. These are the paths a real
+first-time visitor takes, and they are the only ones that exercise `detectUnits()`'s
+result as written by `fresh()` at `app.js:30`. A `?start` URL forces a second
+`S = fresh()` later in boot, which masks any initialization-order defect:
+
+| Context | URL | Expected |
+|---|---|---|
+| `locale: "en-US"`, `timezoneId: "America/New_York"` | `/quiz.html` | `"imperial"` |
+| `locale: "lt-LT"`, `timezoneId: "Europe/Vilnius"` | `/quiz.html` | `"metric"` |
+
 - [ ] **Step 2: Run it to verify it fails**
 
 Expected: all four fail with `units` being `undefined` — the field does not exist yet.
 
 - [ ] **Step 3: Add the detection helpers**
 
-Insert after `bmiCategory` (currently `app.js:57`):
+Insert **above `function fresh()`** (currently `app.js:22`). Placement is load-bearing,
+not cosmetic: `let S = load() || fresh();` at `app.js:30` calls `fresh()` → `detectUnits()`
+during top-level evaluation. Declaring these `const`s anywhere below that line leaves them
+in the temporal dead zone when `detectUnits()` runs, and the `ReferenceError` gets swallowed
+by the `catch` blocks below — silently returning `"metric"` for every first-time visitor.
 
 ```js
   // ---- measurement system ----
