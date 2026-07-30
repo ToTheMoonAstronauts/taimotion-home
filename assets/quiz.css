@@ -164,6 +164,9 @@ h1.q{font-family:var(--sans);font-size:23px;line-height:1.3;margin:6px 0 8px;fon
 .field{display:flex;align-items:center;border-bottom:2px solid var(--q-ink);max-width:300px;margin:0 auto;gap:8px}
 .field input{flex:1;border:none;outline:none;font-family:var(--sans);font-size:34px;font-weight:700;padding:8px 0;text-align:center;background:transparent;width:100%;color:var(--q-ink)}
 .field .u{font-size:18px;font-weight:600;color:var(--q-muted)}
+/* ft + in entry: two equal fields so neither reads as the primary one */
+.field-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:360px;margin:0 auto}
+.field-pair .field{margin:0}
 .feedback{background:var(--q-soft-bg);border:1px solid var(--q-soft-border);border-radius:12px;padding:14px 16px;margin:18px auto 0;max-width:360px;text-align:center;font-size:14px;color:var(--q-ink)}
 .feedback b{color:var(--q-terracotta)}
 

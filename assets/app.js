@@ -87,7 +87,14 @@
     });
     return frag;
   }
-  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }      // v in ft (decimal) -> cm
+  // Height is entered as ft + in (never decimal feet): a visitor typing 5.9 for 5'9" would
+  // silently record 180cm and corrupt the BMI shown back to them as a trust signal.
+  function ftInToCm(ft, inch) { return Math.round(((+ft || 0) * 12 + (+inch || 0)) * 2.54); }
+  function cmToFtIn(cm) {
+    const total = Math.round((+cm || 0) / 2.54);
+    return { ft: Math.floor(total / 12), inch: total % 12 };
+  }
+  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }   // metric path + legacy decimal-ft sessions
   function toKg(v, u) { return u === "lb" ? +(v / 2.20462).toFixed(1) : v; }
   function bmi() { if (!S.height_cm || !S.weight_kg) return null; const m = S.height_cm / 100; return +(S.weight_kg / (m * m)).toFixed(1); }
   function bmiCategory(b) { return b < 18.5 ? "underweight" : b < 25 ? "a healthy weight" : b < 30 ? "in the overweight range" : "in the obese range"; }
@@ -391,12 +398,15 @@
       // metric, so re-rendering from S is both simpler and drift-free.
       b.onclick = () => {
         if (u === unit) return;
+        if (scr.field === "height") { delete S.answers.height_ft; delete S.answers.height_in; }
         setUnits(i === 1 ? "imperial" : "metric");
         rInput(scr, (root.innerHTML = "", root));
       };
       tog.appendChild(b);
     });
     wrap.appendChild(tog);
+    // Imperial height is the one screen with two inputs; every other field is a single number.
+    if (scr.field === "height" && unit === "ft") return heightFtIn(scr, wrap, root);
     const field = el("div", "field");
     const inp = el("input"); inp.type = "number"; inp.inputMode = "decimal";
     inp.placeholder = ({ height: "Height", weight: "Current weight", goal_weight: "Goal weight" }[scr.field] || "Enter a number");
@@ -454,6 +464,54 @@
     inp.onkeydown = (e) => { if (e.key === "Enter") { commit(); showErr(); if (valid()) go(1); } };
     keepVisible(inp, btn);
     setTimeout(() => inp.focus(), 50);
+  }
+
+  // ft + in height entry. Canonical S.height_cm is written on every keystroke; the raw ft/in
+  // pair is kept in answers so back-navigation refills exactly what was typed.
+  function heightFtIn(scr, wrap, root) {
+    const pair = el("div", "field-pair");
+    const mk = (ph, lbl, val) => {
+      const f = el("div", "field");
+      const i = el("input"); i.type = "number"; i.inputMode = "numeric";
+      i.placeholder = ph; i.value = val;
+      f.appendChild(i); f.appendChild(el("span", "u", lbl));
+      pair.appendChild(f);
+      return i;
+    };
+    const saved = S.height_cm ? cmToFtIn(S.height_cm) : { ft: "", inch: "" };
+    const ftIn = mk("5", "ft", S.answers.height_ft ?? (saved.ft || ""));
+    const inIn = mk("9", "in", S.answers.height_in ?? (saved.inch === "" ? "" : saved.inch));
+    wrap.appendChild(pair);
+    const err = el("div", "input-err"); err.style.display = "none"; wrap.appendChild(err);
+    root.appendChild(wrap);
+
+    function problem() {
+      const ft = parseFloat(ftIn.value), inch = inIn.value === "" ? 0 : parseFloat(inIn.value);
+      if (!(ft > 0)) return "";
+      if (!(inch >= 0 && inch <= 11)) return "Inches should be between 0 and 11";
+      const cm = ftInToCm(ft, inch);
+      if (cm < 100 || cm > 220) return "Check Your height value";
+      return "";
+    }
+    function valid() { return parseFloat(ftIn.value) > 0 && !problem(); }
+    function showErr() { const p = problem(); err.textContent = p; err.style.display = p ? "block" : "none"; }
+    function commit() {
+      if (valid()) {
+        S.answers.height_ft = ftIn.value;
+        S.answers.height_in = inIn.value;
+        S.answers[scr.id] = String(ftInToCm(ftIn.value, inIn.value));
+        S.height_cm = ftInToCm(ftIn.value, inIn.value);
+        S.bmi = bmi(); save();
+      }
+    }
+    const btn = inlineCta("Continue", () => { commit(); showErr(); if (valid()) go(1); }, !valid());
+    const onIn = () => { commit(); showErr(); btn.disabled = !valid(); };
+    ftIn.oninput = onIn; inIn.oninput = onIn;
+    [ftIn, inIn].forEach(i => {
+      i.onkeydown = (e) => { if (e.key === "Enter") { commit(); showErr(); if (valid()) go(1); } };
+    });
+    keepVisible(ftIn, btn);
+    setTimeout(() => ftIn.focus(), 50);
   }
 
   // ---- bounded slider ----
