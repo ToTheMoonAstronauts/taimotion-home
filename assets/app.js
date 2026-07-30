@@ -54,6 +54,10 @@
   // is a session property, not a per-screen one, so every screen and all downstream copy agree.
   function unitFor(scr) { return S.units === "imperial" ? scr.units[1] : scr.units[0]; }
   function setUnits(sys) { S.units = sys; save(); }
+  // Display-only weight helpers for personalize()'s copy tokens. Canonical state stays kg;
+  // these convert at render time and never write back into S.
+  function wLabel() { return S.units === "imperial" ? "lb" : "kg"; }
+  function kgToDisp(kg) { return S.units === "imperial" ? Math.round(kg * 2.20462) : Math.round(kg); }
   function fresh() {
     return { id: uuid(), funnel: F.product, created_at: new Date().toISOString(),
       ab_test_name: F.abTestName || null, ab_test_variant: PAGE_VARIANT,
@@ -245,12 +249,17 @@
     const band = S.age_band ? S.age_band.replace(/-/, "–") : "";
     const decade = band ? band.split(/[-–]/)[0].replace(/.$/, "0") + "s" : "your age";
     const gp = S.gender === "male" ? "men" : S.gender === "female" ? "women" : "people";
-    const now = S.weight_kg || 0, goal = S.goal_weight_kg || 0;
-    const lose = now && goal ? Math.max(0, Math.round(now - goal)) : 0;
-    const pct = now && lose ? Math.round((lose / now) * 100) : 0;
+    const nowKg = S.weight_kg || 0, goalKg = S.goal_weight_kg || 0;
+    const loseKg = nowKg && goalKg ? Math.max(0, nowKg - goalKg) : 0;
+    // projDate does its arithmetic in kg (~1kg / 2 weeks), so it gets loseKg — never the
+    // display value. Feeding it pounds would roughly double every projected date.
+    const now = nowKg ? kgToDisp(nowKg) : 0, goal = goalKg ? kgToDisp(goalKg) : 0;
+    const lose = loseKg ? kgToDisp(loseKg) : 0;
+    const pct = nowKg && loseKg ? Math.round((loseKg / nowKg) * 100) : 0;
     return t.replace(/\{decade\}/g, decade).replace(/\{genderPlural\}/g, gp).replace(/\{name\}/g, S.name || "")
       .replace(/\{goal\}/g, goal || "your goal").replace(/\{now\}/g, now || "")
-      .replace(/\{lose\}/g, lose).replace(/\{pct\}/g, pct).replace(/\{projdate\}/g, projDate(lose));
+      .replace(/\{lose\}/g, lose).replace(/\{pct\}/g, pct)
+      .replace(/\{wu\}/g, wLabel()).replace(/\{projdate\}/g, projDate(loseKg));
   }
   // A plausible target date: ~1 kg every ~2 weeks, min ~4 weeks out.
   function projDate(loseKg) {

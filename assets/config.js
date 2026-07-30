@@ -74,8 +74,8 @@ window.FUNNEL = {
       body: "Even a small, steady change can lower your risk of many common health conditions — and Chair Tai Chi makes it easy to start.\n\nSource: American Heart Association (AHA)." },
 
     { id: "projection_1", type: "info", projChart: true, headerTop: true,
-      title: "We predict you'll hit <span class='hl'>{goal}kg</span> by {projdate}",
-      blockTitle: "You only have to lose {lose} kg",
+      title: "We predict you'll hit <span class='hl'>{goal}{wu}</span> by {projdate}",
+      blockTitle: "You only have to lose {lose} {wu}",
       blockBody: "That's about {pct}% of your body weight. According to the American Heart Association, reaching this can lower your risk of diabetes, high blood pressure and other health conditions." },
 
     { id: "intro_plan", type: "info", personalize: true, image: "assets/14b.webp",
@@ -132,7 +132,7 @@ window.FUNNEL = {
       title: "Great news, you're eligible!",
       lead: "Looks like you're a perfect fit for Chair Tai Chi — time to crush your goals.",
       blockTitle: "Based on Tai Motion's historical data for women in their {decade}",
-      blockBody: "Start seeing results in just one week and keep losing weight steadily on the path to your **{goal} kg** goal!" },
+      blockBody: "Start seeing results in just one week and keep losing weight steadily on the path to your **{goal} {wu}** goal!" },
 
     { id: "pain_points", type: "multi", section: "Activity", layout: "cards",
       q: "Are any of the following an issue for you?", sub: "Your plan will address these to ensure your comfort and safety",
@@ -182,7 +182,7 @@ window.FUNNEL = {
     { id: "projection_2", type: "info", projChart: true, headerTop: true,
       title: "You'll achieve your dream body even sooner than expected!",
       lead: "We predict you'll be..",
-      predict: "<span class='hl'>{goal}kg</span> by {projdate}",
+      predict: "<span class='hl'>{goal}{wu}</span> by {projdate}",
       chartCap: "*Based on Tai Motion members with a similar goal",
       body: "Next, tell us more about your lifestyle so we can help you hit your goal even more effectively." },
 
