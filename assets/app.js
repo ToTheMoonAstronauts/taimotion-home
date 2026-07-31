@@ -271,10 +271,20 @@
   }
   // Dynamic projection chart (SVG): start weight -> goal weight, "Now" + target month, all from state.
   function projChartEl(cap) {
-    const now = Math.round(S.weight_kg || 92);
-    const goal = Math.round(S.goal_weight_kg || Math.round((S.weight_kg || 92) * 0.85));
+    // Canonical (kg) and displayed values are kept apart, exactly as personalize() does:
+    // projMonth's arithmetic is kg-based (~1kg / 2 weeks), so it must get loseKg. Handing it
+    // the converted value would roughly double the projected month, and still look plausible.
+    const nowKg = S.weight_kg || 92;
+    const goalKg = S.goal_weight_kg || Math.round(nowKg * 0.85);
+    const loseKg = Math.max(0, nowKg - goalKg);
+    const month = projMonth(loseKg);
+    const wu = wLabel();
+    // Convert from the unrounded canonical kg (not from a rounded kg), so a visitor who typed
+    // 180 lb reads 180 here and in the headline personalize() renders on the same screen.
+    const now = kgToDisp(nowKg), goal = kgToDisp(goalKg);
+    // Same rule as personalize() and the goal-weight slider: the displayed delta comes off the
+    // displayed pair, never from rounding loseKg separately, or "111 − 101 = 11" reaches the screen.
     const lose = Math.max(0, now - goal);
-    const month = projMonth(lose);
     const green = document.documentElement.getAttribute("data-theme") === "green";
     const c1 = green ? "#45b577" : "#bf7350";
     const ink = green ? "#233e20" : "#2a2319";
@@ -283,24 +293,24 @@
     const grid = green ? "#e6ece8" : "#efe7dd";
     const box = el("div", "projchart");
     box.innerHTML = `
-    <svg viewBox="18 0 306 200" width="100%" role="img" aria-label="Projected weight from ${now}kg to ${goal}kg by ${month}">
+    <svg viewBox="18 0 306 200" width="100%" role="img" aria-label="Projected weight from ${now}${wu} to ${goal}${wu} by ${month}">
       <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="${c1}" stop-opacity=".28"/><stop offset="1" stop-color="${c1}" stop-opacity="0"/></linearGradient></defs>
       ${[35,140,245,310].map(x=>`<line x1="${x}" y1="30" x2="${x}" y2="168" stroke="${grid}" stroke-width="1"/>`).join("")}
       <path class="pc-area" d="M35,52 C130,60 205,132 310,150 L310,168 L35,168 Z" fill="url(#pg)"/>
       <path class="pc-line" pathLength="1" d="M35,52 C130,60 205,132 310,150" fill="none" stroke="${c1}" stroke-width="3.5" stroke-linecap="round"/>
-      <text class="pc-now" x="35" y="40" font-size="18" font-weight="800" fill="${ink}">${now}kg</text>
+      <text class="pc-now" x="35" y="40" font-size="18" font-weight="800" fill="${ink}">${now}${wu}</text>
       <g class="pc-walk" transform="translate(96,64)">
         <circle r="12" fill="${c1}"/>
         <circle cx="0" cy="-4.4" r="2.7" fill="#fff"/>
         <path d="M0,-1.2 c-3.3,0 -3.7,4 -3.7,7.6 l7.4,0 c0,-3.6 -0.4,-7.6 -3.7,-7.6 z" fill="#fff"/>
       </g>
-      <text class="pc-decrease" x="182" y="49" font-size="12.5" text-anchor="middle" fill="${muted}">Decrease risk (${lose}kg)</text>
+      <text class="pc-decrease" x="182" y="49" font-size="12.5" text-anchor="middle" fill="${muted}">Decrease risk (${lose}${wu})</text>
       <g class="pc-goal"><line x1="278" y1="124" x2="278" y2="140" stroke="${c1}" stroke-width="1.5"/>
       <circle cx="278" cy="140" r="5.5" fill="${c1}"/>
       <rect x="236" y="80" width="84" height="44" rx="9" fill="${c1}"/>
       <text x="278" y="98" font-size="12" font-weight="700" text-anchor="middle" fill="#fff">Goal</text>
-      <text x="278" y="117" font-size="18" font-weight="800" text-anchor="middle" fill="#fff">${goal}kg</text></g>
+      <text x="278" y="117" font-size="18" font-weight="800" text-anchor="middle" fill="#fff">${goal}${wu}</text></g>
       <text class="pc-nowlbl" x="35" y="192" font-size="14" font-weight="700" fill="${inkL}">Now</text>
       <text class="pc-month" x="310" y="192" font-size="14" font-weight="700" text-anchor="end" fill="${inkL}">${month}</text>
     </svg>
@@ -723,7 +733,10 @@
     return box;
   }
   function chartEl() {
-    const now = S.weight_kg || 78, goal = S.goal_weight_kg || Math.round((S.weight_kg || 78) * 0.85);
+    // Labels only — no kg arithmetic downstream here, but the canonical/display split is kept
+    // so the values stay converted from unrounded kg and agree with the headline above the chart.
+    const nowKg = S.weight_kg || 78, goalKg = S.goal_weight_kg || Math.round(nowKg * 0.85);
+    const wu = wLabel(), now = kgToDisp(nowKg), goal = kgToDisp(goalKg);
     const green = document.documentElement.getAttribute("data-theme") === "green";
     const c1 = green ? "#45b577" : "#bf7350", c2 = green ? "#2f9d61" : "#c98a5f";  // line follows palette
     const box = el("div", "chartbox");
@@ -734,7 +747,7 @@
       <path d="M10,30 C110,40 180,95 310,110" fill="none" stroke="${c1}" stroke-width="3"/>
       <circle cx="10" cy="30" r="5" fill="${c1}"/><circle cx="310" cy="110" r="5" fill="${c2}"/>
       </svg>
-      <div class="chartlabels"><span>Now · ${now}kg</span><span>Goal · ${goal}kg</span></div>`;
+      <div class="chartlabels"><span>Now · ${now}${wu}</span><span>Goal · ${goal}${wu}</span></div>`;
     return box;
   }
 
@@ -865,10 +878,10 @@
     const pr = $("#progress"); if (pr) pr.style.display = "none";     // full-bleed like Digesti — no loader/topbar
     const sc = $("#section"); if (sc) sc.style.display = "none";
     const bk = $("#back"); if (bk) bk.style.display = "none";
-    // Variant C has no weight data — {goal}kg/{projdate} and the weight chart would fabricate numbers.
+    // Variant C has no weight data — {goal}{wu}/{projdate} and the weight chart would fabricate numbers.
     const hasWeight = !!(S.weight_kg && S.goal_weight_kg);
     root.appendChild(el("h1", "q", personalize(hasWeight
-      ? `${S.name ? S.name + ", reach" : "Reach"} your goal of <span class='hl'>{goal}kg</span> by {projdate}`
+      ? `${S.name ? S.name + ", reach" : "Reach"} your goal of <span class='hl'>{goal}{wu}</span> by {projdate}`
       : `${S.name ? S.name + ", your" : "Your"} personalized plan is ready`)));
     root.appendChild(el("p", "sub", "And build a body you feel good living in"));
     if (hasWeight) root.appendChild(chartEl());
