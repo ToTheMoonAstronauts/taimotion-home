@@ -91,14 +91,7 @@
     });
     return frag;
   }
-  // Height is entered as ft + in (never decimal feet): a visitor typing 5.9 for 5'9" would
-  // silently record 180cm and corrupt the BMI shown back to them as a trust signal.
-  function ftInToCm(ft, inch) { return Math.round(((+ft || 0) * 12 + (+inch || 0)) * 2.54); }
-  function cmToFtIn(cm) {
-    const total = Math.round((+cm || 0) / 2.54);
-    return { ft: Math.floor(total / 12), inch: total % 12 };
-  }
-  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }   // "cm" is the live path; "ft" kept defensively — not reached by heightFtIn
+  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }   // "ft" is rInput's live path (goal-weight ?step= fallback never hits this field)
   function toKg(v, u) { return u === "lb" ? +(v / 2.20462).toFixed(1) : v; }
   function bmi() { if (!S.height_cm || !S.weight_kg) return null; const m = S.height_cm / 100; return +(S.weight_kg / (m * m)).toFixed(1); }
   function bmiCategory(b) { return b < 18.5 ? "underweight" : b < 25 ? "a healthy weight" : b < 30 ? "in the overweight range" : "in the obese range"; }
@@ -580,9 +573,12 @@
       unit: imp ? "lb" : "kg", min: conv(loKg), max: conv(hiKg), def: conv(now * 0.9), prefill: true,
       canon: () => S.goal_weight_kg, from: conv,
       set: (v) => { S.goal_weight_kg = toKg(v, imp ? "lb" : "kg"); },
-      extra: () => {
-        const loseKg = Math.max(0, now - (S.goal_weight_kg || 0));
-        const lose = imp ? Math.round(loseKg * 2.20462) : Math.round(loseKg);
+      // Same rule as personalize(): derive the displayed delta from the displayed pair, never by
+      // rounding loseKg separately, or this screen can disagree with the projection screens by a
+      // unit. pct still comes off the true kg delta.
+      extra: (v) => {
+        const lose = Math.max(0, conv(now) - v);
+        const loseKg = Math.max(0, now - toKg(v, imp ? "lb" : "kg"));
         return `That's <b>${lose} ${imp ? "lb" : "kg"}</b> to lose — about <b>${Math.round((loseKg / now) * 100)}%</b> of your body weight.`;
       },
     };
