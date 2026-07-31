@@ -91,7 +91,7 @@
     });
     return frag;
   }
-  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }   // "ft" is rInput's live path (goal-weight ?step= fallback never hits this field)
+  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }   // "cm" is the live path via rInput's goal-weight fallback; "ft" is kept for rInput's height branch, which no screen routes to today
   function toKg(v, u) { return u === "lb" ? +(v / 2.20462).toFixed(1) : v; }
   function bmi() { if (!S.height_cm || !S.weight_kg) return null; const m = S.height_cm / 100; return +(S.weight_kg / (m * m)).toFixed(1); }
   function bmiCategory(b) { return b < 18.5 ? "underweight" : b < 25 ? "a healthy weight" : b < 30 ? "in the overweight range" : "in the obese range"; }
@@ -403,15 +403,12 @@
       // metric, so re-rendering from S is both simpler and drift-free.
       b.onclick = () => {
         if (u === unit) return;
-        if (scr.field === "height") { delete S.answers.height_ft; delete S.answers.height_in; }
         setUnits(i === 1 ? "imperial" : "metric");
         rInput(scr, (root.innerHTML = "", root));
       };
       tog.appendChild(b);
     });
     wrap.appendChild(tog);
-    // Imperial height is the one screen with two inputs; every other field is a single number.
-    if (scr.field === "height" && unit === "ft") return heightFtIn(scr, wrap, root);
     const field = el("div", "field");
     const inp = el("input"); inp.type = "number"; inp.inputMode = "decimal";
     inp.placeholder = ({ height: "Height", weight: "Current weight", goal_weight: "Goal weight" }[scr.field] || "Enter a number");
@@ -469,54 +466,6 @@
     inp.onkeydown = (e) => { if (e.key === "Enter") { commit(); showErr(); if (valid()) go(1); } };
     keepVisible(inp, btn);
     setTimeout(() => inp.focus(), 50);
-  }
-
-  // ft + in height entry. Canonical S.height_cm is written on every keystroke; the raw ft/in
-  // pair is kept in answers so back-navigation refills exactly what was typed.
-  function heightFtIn(scr, wrap, root) {
-    const pair = el("div", "field-pair");
-    const mk = (ph, lbl, val) => {
-      const f = el("div", "field");
-      const i = el("input"); i.type = "number"; i.inputMode = "numeric";
-      i.placeholder = ph; i.value = val;
-      f.appendChild(i); f.appendChild(el("span", "u", lbl));
-      pair.appendChild(f);
-      return i;
-    };
-    const saved = S.height_cm ? cmToFtIn(S.height_cm) : { ft: "", inch: "" };
-    const ftIn = mk("5", "ft", S.answers.height_ft ?? (saved.ft || ""));
-    const inIn = mk("9", "in", S.answers.height_in ?? (saved.inch === "" ? "" : saved.inch));
-    wrap.appendChild(pair);
-    const err = el("div", "input-err"); err.style.display = "none"; wrap.appendChild(err);
-    root.appendChild(wrap);
-
-    function problem() {
-      const ft = parseFloat(ftIn.value), inch = inIn.value === "" ? 0 : parseFloat(inIn.value);
-      if (!(ft > 0)) return "";
-      if (!(inch >= 0 && inch <= 11)) return "Inches should be between 0 and 11";
-      const cm = ftInToCm(ft, inch);
-      if (cm < 100 || cm > 220) return "Check Your height value";
-      return "";
-    }
-    function valid() { return parseFloat(ftIn.value) > 0 && !problem(); }
-    function showErr() { const p = problem(); err.textContent = p; err.style.display = p ? "block" : "none"; }
-    function commit() {
-      if (valid()) {
-        S.answers.height_ft = ftIn.value;
-        S.answers.height_in = inIn.value;
-        S.answers[scr.id] = String(ftInToCm(ftIn.value, inIn.value));
-        S.height_cm = ftInToCm(ftIn.value, inIn.value);
-        S.bmi = bmi(); save();
-      }
-    }
-    const btn = inlineCta("Continue", () => { commit(); showErr(); if (valid()) go(1); }, !valid());
-    const onIn = () => { commit(); showErr(); btn.disabled = !valid(); };
-    ftIn.oninput = onIn; inIn.oninput = onIn;
-    [ftIn, inIn].forEach(i => {
-      i.onkeydown = (e) => { if (e.key === "Enter") { commit(); showErr(); if (valid()) go(1); } };
-    });
-    keepVisible([ftIn, inIn], btn);
-    setTimeout(() => ftIn.focus(), 50);
   }
 
   // ---- bounded sliders ----
@@ -866,20 +815,10 @@
 
   // Keep the CTA visible above the mobile keyboard: scroll it into view on focus,
   // and again when the keyboard opens/closes (visualViewport resize).
-  // `inp` may be a single input or an array of sibling inputs (e.g. heightFtIn's ft+in
-  // pair): the shared resize listener must survive focus moving between siblings and
-  // tear down only once focus leaves the whole set — otherwise tabbing ft->in would
-  // permanently drop keyboard tracking for the rest of the screen.
   function keepVisible(inp, btn) {
-    const els = [].concat(inp);
     const bring = () => setTimeout(() => { try { btn.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {} }, 320);
-    els.forEach(e => e.addEventListener("focus", bring));
-    if (window.visualViewport) {
-      const h = () => bring();
-      window.visualViewport.addEventListener("resize", h);
-      const onBlur = (e) => { if (els.includes(e.relatedTarget)) return; window.visualViewport.removeEventListener("resize", h); };
-      els.forEach(e => e.addEventListener("blur", onBlur));
-    }
+    inp.addEventListener("focus", bring);
+    if (window.visualViewport) { const h = () => bring(); window.visualViewport.addEventListener("resize", h); inp.addEventListener("blur", () => window.visualViewport.removeEventListener("resize", h), { once: true }); }
   }
 
   function rEmail(scr, root) {
