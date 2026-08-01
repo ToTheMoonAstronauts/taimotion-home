@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     // Gate: must reference a real quiz-session lead. Email is taken from the server-side
     // quiz row when present (not trusted from the body), which prevents targeting arbitrary accounts.
-    const { data: quiz } = await db.from('quiz_sessions').select('id,email,name,gender,age_band,height_cm,goal_weight_kg').eq('id', quiz_session_id).maybeSingle();
+    const { data: quiz } = await db.from('quiz_sessions').select('id,email,name,gender,age_band,height_cm,goal_weight_kg,measurement_system').eq('id', quiz_session_id).maybeSingle();
     if (!quiz) return json({ error: 'unknown quiz session' }, 400);
     // Email must exist server-side on the quiz row; never trust a body-supplied email.
     if (!quiz.email) return json({ error: 'quiz session has no email' }, 400);
@@ -86,6 +86,11 @@ Deno.serve(async (req) => {
     if (!urow?.age_band && quiz.age_band) updates.age_band = quiz.age_band;
     if (urow?.height_cm == null && quiz.height_cm != null) updates.height_cm = quiz.height_cm;
     if (urow?.target_weight_kg == null && quiz.goal_weight_kg != null) updates.target_weight_kg = quiz.goal_weight_kg;
+    // measurement_system has a non-null column default ('metric'), so the null-guard pattern
+    // used above can never fire for it. newAccount is the real signal: only adopt the quiz's
+    // units for an account created by this checkout — never override units an existing member
+    // has chosen in Profile settings.
+    if (newAccount && quiz.measurement_system) updates.measurement_system = quiz.measurement_system;
     await Promise.all([                                       // independent tables — write concurrently
       db.from('users').update(updates).eq('id', userId),      // service role -> past billing guard
       db.from('quiz_sessions').update({ user_id: userId, selected_plan: plan_id }).eq('id', quiz_session_id),
