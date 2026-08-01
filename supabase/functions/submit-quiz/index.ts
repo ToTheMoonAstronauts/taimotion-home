@@ -30,6 +30,12 @@ Deno.serve(async (req) => {
       weight_kg: s.weight_kg ?? null,
       goal_weight_kg: s.goal_weight_kg ?? null,
       bmi: s.bmi ?? null,
+      // Unit system the visitor took the quiz in. Validated against the two
+      // literals so an arbitrary client-supplied string never reaches a column
+      // the member app reads. Body values above stay canonical metric.
+      measurement_system: s.units === "imperial" || s.units === "metric"
+        ? s.units
+        : null,
       metabolic_age: s.metabolic_age ?? null,
       recommended_track: s.recommended_track ?? null,
       email: s.email ?? null,
