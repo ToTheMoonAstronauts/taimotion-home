@@ -91,7 +91,6 @@
     });
     return frag;
   }
-  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }   // "cm" is the live path via rInput's goal-weight fallback; "ft" is kept for rInput's height branch, which no screen routes to today
   function toKg(v, u) { return u === "lb" ? +(v / 2.20462).toFixed(1) : v; }
   function bmi() { if (!S.height_cm || !S.weight_kg) return null; const m = S.height_cm / 100; return +(S.weight_kg / (m * m)).toFixed(1); }
   function bmiCategory(b) { return b < 18.5 ? "underweight" : b < 25 ? "a healthy weight" : b < 30 ? "in the overweight range" : "in the obese range"; }
@@ -402,6 +401,8 @@
     ctaBar("Continue", () => go(1), cur.size === 0);
   }
 
+  // Free-text numeric entry. Every body-metric screen is type:"slider" now, so the only route in
+  // is rSlider's goal-weight deep-link fallback (below) — units are always kg/lb here, never cm/ft.
   function rInput(scr, root) {
     head(scr, root);
     let unit = unitFor(scr);
@@ -421,13 +422,12 @@
     wrap.appendChild(tog);
     const field = el("div", "field");
     const inp = el("input"); inp.type = "number"; inp.inputMode = "decimal";
-    inp.placeholder = ({ height: "Height", weight: "Current weight", goal_weight: "Goal weight" }[scr.field] || "Enter a number");
+    inp.placeholder = ({ weight: "Current weight", goal_weight: "Goal weight" }[scr.field] || "Enter a number");
     // Derive from the canonical metric value so a unit switch converts rather than clears.
     // S.answers[scr.id] is only a fallback for a value typed but not yet committed.
     inp.value = (() => {
       const kg = scr.field === "weight" ? S.weight_kg : scr.field === "goal_weight" ? S.goal_weight_kg : null;
       if (kg != null) return String(unit === "lb" ? Math.round(kg * 2.20462) : Math.round(kg * 10) / 10);
-      if (scr.field === "height" && S.height_cm != null) return String(S.height_cm);
       return S.answers[scr.id] || "";
     })();
     field.appendChild(inp); field.appendChild(el("span", "u", unit));
@@ -439,8 +439,7 @@
     function problem() {
       const v = parseFloat(inp.value);
       if (!(v > 0)) return "";
-      const cm = toCm(v, unit), kg = toKg(v, unit);
-      if (scr.field === "height" && (cm < 100 || cm > 220)) return "Check Your height value";
+      const kg = toKg(v, unit);
       if (scr.field === "weight" && kg >= 160) return "Check Your weight value";
       if (scr.field === "goal_weight") {
         if (kg >= 160) return "Check Your weight value";
@@ -454,7 +453,6 @@
       const v = parseFloat(inp.value);
       if (v > 0) {
         S.answers[scr.id] = inp.value;
-        if (scr.field === "height") S.height_cm = toCm(v, unit);
         if (scr.field === "weight") S.weight_kg = toKg(v, unit);
         if (scr.field === "goal_weight") S.goal_weight_kg = toKg(v, unit);
         S.bmi = bmi(); save();
@@ -495,6 +493,11 @@
     const imp = S.units === "imperial";
     const notes = (v) => null;
     if (scr.field === "height") {
+      // S.answers.height_ft/height_in are write-only: the slider always re-derives its position from
+      // S.height_cm, so nothing reads them back. They are kept as the imperial-session marker in
+      // stored data — the only way to tell, after the fact, that a session answered in ft/in (which
+      // is what made the measurement_system backfill possible, and what a BI query would
+      // filter on). The metric branch deletes them so a mid-quiz switch to cm leaves no stale flag.
       return imp
         ? { unit: "in", min: 55, max: 79, def: 65, prefill: false,
             canon: () => S.height_cm, from: (cm) => Math.round(cm / 2.54),
