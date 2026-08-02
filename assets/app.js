@@ -484,11 +484,10 @@
   // than drifts. Imperial height steps in whole inches but READS as ft+in — one thumb, so the
   // ft/in field pair (and its focus-juggling) isn't needed here.
   //
-  // prefill: goal_weight commits its default because it is derived from a real answer (~10% of the
-  // weight they just gave) and the projection screens need {goal}/{lose}/{pct} to resolve. height
-  // and weight must NOT prefill — committing a midpoint nobody chose would fabricate the body data
-  // that BMI, the projections and the whole plan are built on, and it would be indistinguishable
-  // from a real answer. Those two require a deliberate move before Continue enables.
+  // prefill: all three body sliders commit their defaults so Continue is enabled on load.
+  // goal_weight is derived from a real answer (~10% of the weight they just gave) and the
+  // projection screens need {goal}/{lose}/{pct} to resolve. height/weight default to typical
+  // midpoints the user can accept or adjust (165 cm / 75 kg, or imperial equivalents).
   function sliderSpec(scr) {
     const imp = S.units === "imperial";
     const notes = (v) => null;
@@ -499,12 +498,12 @@
       // is what made the measurement_system backfill possible, and what a BI query would
       // filter on). The metric branch deletes them so a mid-quiz switch to cm leaves no stale flag.
       return imp
-        ? { unit: "in", min: 55, max: 79, def: 65, prefill: false,
+        ? { unit: "in", min: 55, max: 79, def: 65, prefill: true,
             canon: () => S.height_cm, from: (cm) => Math.round(cm / 2.54),
             set: (v) => { S.height_cm = Math.round(v * 2.54); S.answers.height_ft = String(Math.floor(v / 12)); S.answers.height_in = String(v % 12); },
             big: (v) => `<span class="sl-num">${Math.floor(v / 12)}</span><span class="sl-u">ft</span><span class="sl-num">${v % 12}</span><span class="sl-u">in</span>`,
             end: (v) => `${Math.floor(v / 12)}'${v % 12}"`, say: (v) => `${Math.floor(v / 12)} feet ${v % 12} inches`, extra: notes }
-        : { unit: "cm", min: 140, max: 200, def: 165, prefill: false,
+        : { unit: "cm", min: 140, max: 200, def: 165, prefill: true,
             canon: () => S.height_cm, from: (cm) => Math.round(cm),
             set: (v) => { S.height_cm = v; delete S.answers.height_ft; delete S.answers.height_in; },
             big: (v) => `<span class="sl-num">${v}</span><span class="sl-u">cm</span>`,
@@ -515,7 +514,7 @@
       return `Your BMI is <b>${S.bmi}</b> — ${bmiCategory(S.bmi)}. We'll use this to set a healthy, realistic pace.`;
     };
     if (scr.field === "weight") {
-      const base = { prefill: false, canon: () => S.weight_kg, extra: wExtra };
+      const base = { prefill: true, canon: () => S.weight_kg, extra: wExtra };
       return imp
         ? Object.assign(base, { unit: "lb", min: 88, max: 350, def: 165,
             from: (kg) => Math.round(kg * 2.20462), set: (v) => { S.weight_kg = toKg(v, "lb"); S.bmi = bmi(); } })
