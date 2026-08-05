@@ -369,7 +369,7 @@
     function go() {
       session.selected_plan = selected; session.status = "checkout";
       localStorage.setItem("ctc_quiz_session", JSON.stringify(session));
-      location.href = "pay.html";
+      location.href = "/es/pay.html";
     }
     document.getElementById("getPlan").onclick = go;
     document.getElementById("getPlan2").onclick = go;

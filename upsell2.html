@@ -1,40 +1,36 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, maximum-scale=1" name="viewport"/>
 <script src="assets/theme.js?v=3"></script>
 <script src="assets/track.js?v=3"></script>
 <script src="assets/analytics.js?v=4"></script>
 <title>Improve more areas</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=15">
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&amp;family=DM+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="assets/style.css?v=15" rel="stylesheet"/>
 <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
-  <header class="topbar"><span class="brand" style="margin:0 auto"><img class="logo" src="assets/logo2.webp" alt="">Tai&nbsp;Motion</span></header>
-  <div id="stephdr"></div>
-
-  <main>
-    <div class="offer-head">Your answers showed areas <span class="hl-green">worth supporting</span></div>
-    <h2 class="q" style="font-size:19px;text-align:left;max-width:var(--maxw);margin:0 auto 6px;padding:0 20px">What would you like to improve?</h2>
-
-    <div id="guides"></div>
-
-    <div class="cta-bar" style="position:static;background:none;margin-top:8px">
-      <div class="cta-inner"><button class="btn" id="add">Claim now</button></div>
-    </div>
-    <button class="decline" id="skip">Continue without guides</button>
-    <p class="fineprint">Selected add-ons are charged once to your account. Refundable per our refund policy.</p>
-  </main>
-
-  <script src="assets/api.js?v=5"></script>
-  <script src="assets/stripe.js?v=2"></script>
-  <script src="assets/flow.js?v=2"></script>
-  <script src="assets/upsell.js?v=2"></script>
-  <script>
+<header class="topbar"><span class="brand" style="margin:0 auto"><img alt="" class="logo" src="assets/logo2.webp"/>Tai Motion</span></header>
+<div id="stephdr"></div>
+<main>
+<div class="offer-head">Your answers showed areas <span class="hl-green">worth supporting</span></div>
+<h2 class="q" style="font-size:19px;text-align:left;max-width:var(--maxw);margin:0 auto 6px;padding:0 20px">What would you like to improve?</h2>
+<div id="guides"></div>
+<div class="cta-bar" style="position:static;background:none;margin-top:8px">
+<div class="cta-inner"><button class="btn" id="add">Claim now</button></div>
+</div>
+<button class="decline" id="skip">Continue without guides</button>
+<p class="fineprint">Selected add-ons are charged once to your account. Refundable per our refund policy.</p>
+</main>
+<script src="assets/api.js?v=5"></script>
+<script src="assets/stripe.js?v=2"></script>
+<script src="assets/flow.js?v=2"></script>
+<script src="assets/upsell.js?v=2"></script>
+<script>
     const GUIDES = [
       { id:"sleep", icon:"🛏️", gt:"Better Sleep", gd:"A Chair Tai Chi wind-down for restful nights", price:18.99 },
       { id:"eating", icon:"🍎", gt:"Eating Without Guilt", gd:"A calm, kind relationship with food", price:18.99 },
@@ -64,6 +60,6 @@
     };
     document.getElementById("skip").onclick = () => { location.href = "thankyou.html"; };
   </script>
-  <script src="assets/testbar.js?v=1"></script>
-</body>
+
+<div style="text-align:center;padding:18px 0"><a href="/es/upsell2.html" id="lang-link-ck" style="color:#8a9585;text-decoration:underline;font:500 15px system-ui,sans-serif">Español</a></div></body>
 </html>

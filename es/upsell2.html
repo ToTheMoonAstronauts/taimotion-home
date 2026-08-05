@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, maximum-scale=1" name="viewport"/>
+<script src="/assets/theme.js?v=3"></script>
+<script src="/assets/track.js?v=3"></script>
+<script src="/assets/analytics.js?v=4"></script>
+<title>Mejorar en más ámbitos</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&amp;family=DM+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="/assets/style.css?v=15" rel="stylesheet"/>
+<script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+<header class="topbar"><span class="brand" style="margin:0 auto"><img alt="" class="logo" src="/assets/logo2.webp"/> Tai Motion</span></header>
+<div id="stephdr"></div>
+<main>
+<div class="offer-head">Sus respuestas han puesto de manifiesto algunos aspectos  <span class="hl-green">merece la pena apoyarlo</span></div>
+<h2 class="q" style="font-size:19px;text-align:left;max-width:var(--maxw);margin:0 auto 6px;padding:0 20px">¿Qué le gustaría mejorar?</h2>
+<div id="guides"></div>
+<div class="cta-bar" style="position:static;background:none;margin-top:8px">
+<div class="cta-inner"><button class="btn" id="add">Solicítelo ahora</button></div>
+</div>
+<button class="decline" id="skip">Continuar sin guías</button>
+<p class="fineprint">Los complementos seleccionados se cargarán una sola vez en su cuenta. Son reembolsables según nuestra política de reembolsos.</p>
+</main>
+<script src="/assets/api.js?v=5"></script>
+<script src="/assets/stripe.js?v=2"></script>
+<script src="/assets/flow.js?v=2"></script>
+<script src="/assets/upsell.js?v=2"></script>
+<script>
+    const GUIDES = [
+      { id:"sleep", icon:"🛏️", gt:"Better Sleep", gd:"A Chair Tai Chi wind-down for restful nights", price:18.99 },
+      { id:"eating", icon:"🍎", gt:"Eating Without Guilt", gd:"A calm, kind relationship with food", price:18.99 },
+      { id:"aging", icon:"🌿", gt:"Aging Gracefully", gd:"7 pillars for a strong, calm, joyful later life", price:18.99 },
+    ];
+    const BUNDLE = { id:"all_guides", icon:"🧩", gt:"All 3 guides", gd:"Better Sleep, Eating Without Guilt & Aging Gracefully", old:56.97, price:38.99, off:"32% OFF", best:true };
+    let selected = "all_guides";
+
+    function render() {
+      const box = document.getElementById("guides");
+      const rowG = g => `<div class="guide ${selected===g.id?"sel":""}" data-id="${g.id}">
+        <span class="ic">${g.icon}</span>
+        <span class="gtext"><span class="gt">${g.gt}</span><span class="gd">${g.gd}</span></span>
+        <span class="gprice">${g.old?`<span class="old">$${g.old}</span>`:""}$${g.price.toFixed(2)}${g.off?`<span class="tag-off">${g.off}</span>`:""}</span>
+        ${g.best?'<span class="tag-rec">BEST VALUE</span>':""}</div>`;
+      box.innerHTML = GUIDES.map(rowG).join("") + rowG(BUNDLE);
+      box.querySelectorAll(".guide").forEach(el => el.onclick = () => { selected = el.dataset.id; render(); });
+    }
+    render();
+    document.getElementById("stephdr").innerHTML = FLOW.stepHeader("offer");
+
+    document.getElementById("add").onclick = (e) => {
+      const all = [...GUIDES, BUNDLE]; const g = all.find(x => x.id === selected);
+      // every option is one-time: bundle -> "all_guides", individual -> "guide_<id>"
+      const upsellId = g.id === "all_guides" ? "all_guides" : "guide_" + g.id;
+      UPSELL.accept(upsellId, { id: upsellId, label: g.gt, amount: g.price, recurring: false }, "thankyou.html", e.currentTarget);
+    };
+    document.getElementById("skip").onclick = () => { location.href = "thankyou.html"; };
+  </script>
+
+<div style="text-align:center;padding:18px 0"><a href="/upsell2.html" id="lang-link-ck" style="color:#8a9585;text-decoration:underline;font:500 15px system-ui,sans-serif">English</a></div><script>/*TM_CHROME*/(function(){var D={"My profile": "Mi perfil", "Activity": "Actividad", "Lifestyle": "Estilo de vida", "Select your age": "Seleccione su edad", "Chair Tai Chi Workouts": "Ejercicios de tai chi en silla", "Take the quiz — get your PDF Guide!": "Realice el cuestionario y obtenga su guía en PDF.", "PDF Guide": "Guía en formato PDF", "Continue": "Continuar", "Get My Plan": "Ver mi plan", "Enter": "Introducir", "None": "Ninguno", "No activity": "Sin actividad", "Reach": "Alcance", "Back": "Atrás", "Skip": "Saltar", "Almost done": "Ya casi está", "First results": "Primeros resultados", "Getting things ready for you": "Preparando todo para usted", "Just a moment…": "Un momento…", "Current weight": "Peso actual", "Goal weight": "Peso objetivo", "Height": "Altura", "First name": "Nombre", "Your email address": "Su dirección de correo electrónico", "Enter a number": "Introduzca un número", "Your goal should be below your current weight": "Su objetivo debería ser un peso inferior al que tiene actualmente", "You only have to lose…": "Lo único que tiene que perder es…", "Gentle seated workouts — no equipment needed": "Ejercicios suaves para realizar sentado — no se necesita ningún material", "Slim down and tone up with gentle but effective workouts": "Adelgace y tonifique su cuerpo con entrenamientos suaves pero eficaces", "Customized nutrition suggestions for better results": "Recomendaciones nutricionales personalizadas para obtener mejores resultados", "And build a body you feel good living in": "Y consiga un cuerpo con el que se sienta bien", "Expected results from 1 to 12 weeks": "Resultados previstos entre la semana 1 y la semana 12", "Trusted by over 163,432 clients": "Contamos con la confianza de más de 163 432 clientes", "Source:": "Fuente:", "Tai Chi plan": "Plan de tai chi", "By choosing your age and continuing you agree to our": "Al seleccionar su edad y continuar, acepta nuestras", "Terms of Service": "Condiciones de uso", "Privacy Policy": "Política de privacidad", "Please review before continuing": "Por favor, revíselo antes de continuar", "Take the quiz — get your": "Haga el test y obtenga su", "PDF Guide!": "¡Guía en PDF!", ". Please review before continuing": ". Por favor, revíselo antes de continuar", "300K users have chosen us": "300 000 usuarios nos han elegido", "We respect your privacy and process your data exclusively in accordance with our": "Respetamos su privacidad y tratamos sus datos exclusivamente de conformidad con nuestra", "After 2 weeks": "Tras dos semanas", "Serotonin": "Serotonina", "Goal": "Objetivo", "Now": "Ahora", "Today": "Hoy", "1 week": "1 semana", "4 weeks": "4 semanas", "12 weeks": "12 semanas", "0min": "0 min", "5min": "5 min", "10min": "10 min", "15min": "15 min", "20min": "20 min", "25min": "25 min", "Check Your height value": "Compruebe el valor de «height»", "Check Your weight value": "Compruebe el valor de su peso", "Realistic goal!": "¡Un objetivo realista!", "⭐ 300K users have chosen us": "⭐ 300 000 usuarios nos han elegido", "🔒 We respect your privacy and process your data exclusively in accordance with our": "🔒 Respetamos su privacidad y tratamos sus datos exclusivamente de conformidad con nuestra", "*Looking at Tai Motion members like you": "*Viendo a Tai Motion miembros como usted", "24/7 personalized wellness assistant": "Asistente de bienestar personalizado disponible las 24 horas del día, los 7 días de la semana", "Calmer, more energy, and my posture has improved. My friends noticed first!": "Me siento más tranquila, tengo más energía y mi postura ha mejorado. ¡Mis amigos fueron los primeros en darse cuenta!", "I've tried everything — this is the only routine I've kept up. It just fits my day.": "Lo he probado todo; esta es la única rutina que he conseguido mantener. Simplemente se adapta perfectamente a mi día a día.", "Less stress and I'm sleeping better. Simple moves, real results.": "Tengo menos estrés y duermo mejor. Movimientos sencillos, resultados reales.", "So gentle I can do it from my armchair — and I already feel steadier on my feet.": "Es tan suave que puedo hacerlo desde mi sillón, y ya me siento más estable al caminar.", "Ten minutes a day and my mornings aren't stiff anymore. I actually look forward to it.": "Diez minutos al día y ya no me siento agarrotada por las mañanas. De hecho, lo espero con ganas.", "Your BMI is": "Su IMC es", "1-week plan": "Plan de 1 semana", "4-week plan": "Plan de 4 semanas", "12-week plan": "Plan de 12 semanas", "per day": "al día", "Underweight": "Bajo peso", "Healthy": "Saludable", "Overweight": "Sobrepeso", "Obese": "Obesidad", "By continuing, you agree to our": "Al continuar, acepta nuestras", "MOST POPULAR": "MÁS POPULAR"};var P=[["We'll use this to set a healthy, realistic pace.", "Utilizaremos esto para establecer un ritmo adecuado y realista."], ["in the overweight range", "en el rango de sobrepeso"], ["in the obese range", "en el rango de la obesidad"], ["a healthy weight", "un peso saludable"], ["Las personas mujeres", "Las mujeres"], ["Las personas hombres", "Los hombres"], ["personas mujeres", "mujeres"], ["personas hombres", "hombres"], ["Now · ", "Ahora · "], ["Goal · ", "Objetivo · "], ["reach your goal of", "alcance su objetivo de"], ["Reach your goal of", "Alcance su objetivo de"], [", your plan is ready", ", su plan ya está listo"]];
+var M={January:'enero',February:'febrero',March:'marzo',April:'abril',May:'mayo',June:'junio',July:'julio',August:'agosto',September:'septiembre',October:'octubre',November:'noviembre',December:'diciembre'};
+function tpl(s){
+s=s.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December) (\d{1,2})\b/g,function(_,mo,d){return d+' de '+M[mo];});
+s=s.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/g,function(_,mo){return M[mo];});
+s=s.replace(/Decrease risk \((\d+)\s*kg\)/g,'Riesgo de reducción ($1 kg)');
+s=s.replace(/(\d+)\s*years?\b/g,'$1 años');
+s=s.replace(/\b([3-9]0)s\b/g,'$1 años');
+s=s.replace(/\bwomen\b/g,'mujeres').replace(/\bmen\b/g,'hombres').replace(/\bpeople\b/g,'personas');
+s=s.replace(/\bby (\d{1,2} de [a-záéíóú]+)/gi,'para el $1');
+for(var i=0;i<P.length;i++){if(s.indexOf(P[i][0])>=0)s=s.split(P[i][0]).join(P[i][1]);}
+return s;}
+function deq(k){return k.replace(/^[“”‘’"']+|[“”‘’"']+$/g,'');}
+function swap(){try{var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null),n;
+while(n=w.nextNode()){var v=n.nodeValue,k=v.trim(),nv;
+if(k&&D[k])nv=v.replace(k,D[k]);
+else{var k2=deq(k);if(k2!==k&&D[k2])nv=v.replace(k2,D[k2]);else nv=tpl(v);}
+if(nv!==v)n.nodeValue=nv;}
+var a=document.querySelectorAll('input[placeholder],textarea[placeholder],[aria-label]');
+for(var j=0;j<a.length;j++){var pk=(a[j].getAttribute('placeholder')||'').trim();if(pk&&D[pk])a[j].setAttribute('placeholder',D[pk]);
+var al=(a[j].getAttribute('aria-label')||'').trim();if(al&&D[al])a[j].setAttribute('aria-label',D[al]);}
+}catch(e){}}
+new MutationObserver(swap).observe(document.body,{childList:true,subtree:true});
+document.addEventListener('DOMContentLoaded',swap);setTimeout(swap,300);setTimeout(swap,900);setTimeout(swap,1600);swap();})();</script></body>
+</html>
