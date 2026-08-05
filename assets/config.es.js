@@ -6,7 +6,7 @@ window.FUNNEL = {
       "id": "tried_before",
       "type": "single",
       "section": "Mi perfil",
-      "figure": "assets/2f_tried.webp",
+      "figure": "/assets/2f_tried.webp",
       "q": "¿Ha probado alguna vez el tai chi en silla?",
       "options": [
         {
@@ -22,7 +22,7 @@ window.FUNNEL = {
     {
       "id": "intro_encourage",
       "type": "info",
-      "image": "assets/3.webp",
+      "image": "/assets/3.webp",
       "title": "¡Lo hará de maravilla!",
       "body": "El tai chi en silla es una opción de ejercicio físico suave y eficaz.\n\n**Se pondrá en forma en casa utilizando únicamente una silla**, ¡antes de lo que imagina!"
     },
@@ -37,22 +37,22 @@ window.FUNNEL = {
         {
           "value": "lose_weight",
           "label": "Adelgazar",
-          "img": "assets/4a_wight.webp"
+          "img": "/assets/4a_wight.webp"
         },
         {
           "value": "feel_healthier",
           "label": "Siéntase más sano",
-          "img": "assets/4b_health.webp"
+          "img": "/assets/4b_health.webp"
         },
         {
           "value": "lower_stress",
           "label": "Reducir el estrés",
-          "img": "assets/4c_stress.webp"
+          "img": "/assets/4c_stress.webp"
         },
         {
           "value": "memory_focus",
           "label": "Mejore la memoria y la concentración",
-          "img": "assets/4d_focus.webp"
+          "img": "/assets/4d_focus.webp"
         }
       ]
     },
@@ -60,7 +60,7 @@ window.FUNNEL = {
       "id": "intro_solution",
       "type": "info",
       "personalize": true,
-      "image": "assets/5.webp",
+      "image": "/assets/5.webp",
       "title": "¡Tenemos la solución perfecta!",
       "body": "Para {genderPlural} en su {decade}, el Tai Chi en silla es una opción excelente para **adelgazar con el mínimo esfuerzo**.\n\nDe 10 a 15 minutos al día para empezar a notar los primeros cambios."
     },
@@ -74,22 +74,22 @@ window.FUNNEL = {
         {
           "value": "thin",
           "label": "Delgado",
-          "img": "assets/6_thin.webp"
+          "img": "/assets/6_thin.webp"
         },
         {
           "value": "mid",
           "label": "De tamaño medio",
-          "img": "assets/6_mid.webp"
+          "img": "/assets/6_mid.webp"
         },
         {
           "value": "plump",
           "label": "Regordete",
-          "img": "assets/6_plump.webp"
+          "img": "/assets/6_plump.webp"
         },
         {
           "value": "plus",
           "label": "Tallas grandes",
-          "img": "assets/6_plus.webp"
+          "img": "/assets/6_plus.webp"
         }
       ]
     },
@@ -103,22 +103,22 @@ window.FUNNEL = {
         {
           "value": "slim",
           "label": "Delgado",
-          "img": "assets/7_slim.webp"
+          "img": "/assets/7_slim.webp"
         },
         {
           "value": "toned",
           "label": "Tonificado",
-          "img": "assets/7_toned.webp"
+          "img": "/assets/7_toned.webp"
         },
         {
           "value": "curvy",
           "label": "Con curvas",
-          "img": "assets/7_curvy.webp"
+          "img": "/assets/7_curvy.webp"
         },
         {
           "value": "sizes",
           "label": "Unas tallas más pequeñas",
-          "img": "assets/7_smaller.webp"
+          "img": "/assets/7_smaller.webp"
         }
       ]
     },
@@ -133,27 +133,27 @@ window.FUNNEL = {
         {
           "value": "legs",
           "label": "Piernas",
-          "img": "assets/8_legs.webp"
+          "img": "/assets/8_legs.webp"
         },
         {
           "value": "belly",
           "label": "Vientre",
-          "img": "assets/8_belly.webp"
+          "img": "/assets/8_belly.webp"
         },
         {
           "value": "arms",
           "label": "Armas",
-          "img": "assets/8_arms.webp"
+          "img": "/assets/8_arms.webp"
         },
         {
           "value": "butt",
           "label": "Trasero",
-          "img": "assets/8_butt.webp"
+          "img": "/assets/8_butt.webp"
         },
         {
           "value": "face_neck",
           "label": "Rostro y cuello",
-          "img": "assets/8_neck.webp"
+          "img": "/assets/8_neck.webp"
         }
       ]
     },
@@ -164,8 +164,8 @@ window.FUNNEL = {
       "q": "¿Qué estatura tiene?",
       "sub": "Utilizaremos esta información para determinar su ritmo ideal de pérdida de peso",
       "units": [
-        "cm",
-        "ft"
+        "ft",
+        "cm"
       ],
       "field": "height"
     },
@@ -175,8 +175,8 @@ window.FUNNEL = {
       "section": "Mi perfil",
       "q": "¿Cuál es su peso actual?",
       "units": [
-        "kg",
-        "lb"
+        "lb",
+        "kg"
       ],
       "field": "weight",
       "computeBMI": true
@@ -188,17 +188,17 @@ window.FUNNEL = {
       "q": "¡Entendido! ¿Y cuál es su peso objetivo?",
       "sub": "Basta con una cifra aproximada; podrá modificarla fácilmente más adelante.",
       "units": [
-        "kg",
-        "lb"
+        "lb",
+        "kg"
       ],
       "field": "goal_weight",
-      "noteTitle": "Realistic goal!",
+      "noteTitle": "¡Un objetivo realista!",
       "note": "Un objetivo moderado y gradual es más fácil de alcanzar y de mantener. Los cambios pequeños y constantes son los que perduran."
     },
     {
       "id": "intro_smallchange",
       "type": "info",
-      "image": "assets/bodies_2b.jpg",
+      "image": "/assets/bodies_2b.jpg",
       "title": "Perder tan solo un 5 % de su peso puede mejorar su salud",
       "body": "Incluso un cambio pequeño pero constante puede reducir el riesgo de padecer muchas enfermedades comunes, y el «Tai Chi en silla» le facilita dar el primer paso.\n\nFuente: Asociación Americana del Corazón (AHA)."
     },
@@ -208,14 +208,14 @@ window.FUNNEL = {
       "projChart": true,
       "headerTop": true,
       "title": "Prevemos que alcanzará <span class='hl'>{goal} kg</span> para {projdate}",
-      "blockTitle": "You only have to lose {lose} kg",
-      "blockBody": "That's about {pct}% of your body weight. According to the American Heart Association, reaching this can lower your risk of diabetes, high blood pressure and other health conditions."
+      "blockTitle": "Solo tiene que perder {lose} kg",
+      "blockBody": "Eso supone aproximadamente el {pct} % de su peso corporal. Según la Asociación Americana del Corazón, alcanzar este objetivo puede reducir el riesgo de padecer diabetes, hipertensión y otras afecciones de salud."
     },
     {
       "id": "intro_plan",
       "type": "info",
       "personalize": true,
-      "image": "assets/14b.webp",
+      "image": "/assets/14b.webp",
       "title": "Una meta sin un plan no es más que un deseo",
       "body": "Las personas {genderPlural} en su {decade} pueden necesitar un enfoque **adaptado a sus necesidades específicas**.\n\n¡Cuéntenos un poco más sobre usted para que podamos elaborar un plan de entrenamiento de taichí en silla que se adapte a sus necesidades!"
     },
@@ -329,7 +329,7 @@ window.FUNNEL = {
     {
       "id": "intro_effective",
       "type": "info",
-      "image": "assets/18.webp",
+      "image": "/assets/18.webp",
       "title": "Tai Chi en silla: tan eficaz como suave",
       "body": "Los movimientos lentos y conscientes marcan una diferencia real. El tai chi en silla le ayuda a **sentirse más saludable, desarrollar una fuerza constante y mejorar su equilibrio y movilidad**, sin el esfuerzo que suponen los entrenamientos de alto impacto.\n\nFuente: «Walking for Exercise», Harvard Nutrition Source"
     },
@@ -338,7 +338,7 @@ window.FUNNEL = {
       "type": "single",
       "section": "Actividad",
       "layout": "ld",
-      "cardImg": "assets/20_stairs.jpg?v=2",
+      "cardImg": "/assets/20_stairs.jpg?v=2",
       "q": "¿Se identifica con la siguiente afirmación?",
       "statement": "Me quedo sin aliento después de subir un tramo de escaleras",
       "options": [
@@ -359,7 +359,7 @@ window.FUNNEL = {
       "type": "single",
       "section": "Actividad",
       "layout": "ld",
-      "cardImg": "assets/20_excersize.webp",
+      "cardImg": "/assets/20_excersize.webp",
       "q": "¿Se identifica con la siguiente afirmación?",
       "statement": "Suelo rendirme fácilmente cuando los ejercicios son demasiado difíciles o aburridos",
       "options": [
@@ -380,7 +380,7 @@ window.FUNNEL = {
       "type": "single",
       "section": "Actividad",
       "layout": "ld",
-      "cardImg": "assets/21_workout.webp",
+      "cardImg": "/assets/21_workout.webp",
       "q": "¿Se identifica con la siguiente afirmación?",
       "statement": "No estoy seguro de cómo elegir los entrenamientos que más me convienen",
       "options": [
@@ -402,9 +402,9 @@ window.FUNNEL = {
       "eligChart": true,
       "headerTop": true,
       "title": "¡Una gran noticia: cumple los requisitos!",
-      "lead": "Looks like you're a perfect fit for Chair Tai Chi — time to crush your goals.",
-      "blockTitle": "Based on Tai Motion's historical data for women in their {decade}",
-      "blockBody": "Start seeing results in just one week and keep losing weight steadily on the path to your **{goal} kg** goal!"
+      "lead": "Parece que el «Tai Chi en silla» es ideal para usted; es hora de alcanzar sus objetivos.",
+      "blockTitle": "Según los datos históricos de Tai Motion sobre las mujeres en su {decade}",
+      "blockBody": "¡Empiece a ver resultados en tan solo una semana y siga perdiendo peso de forma constante hasta alcanzar su objetivo de **{goal} kg**!"
     },
     {
       "id": "pain_points",
@@ -417,27 +417,27 @@ window.FUNNEL = {
         {
           "value": "back",
           "label": "Espalda sensible",
-          "img": "assets/23_back.webp"
+          "img": "/assets/23_back.webp"
         },
         {
           "value": "knees",
           "label": "Dolor en las rodillas",
-          "img": "assets/23_knees.webp"
+          "img": "/assets/23_knees.webp"
         },
         {
           "value": "hips",
           "label": "Caderas tensas",
-          "img": "assets/23_hips.webp"
+          "img": "/assets/23_hips.webp"
         }
       ],
       "noneValue": "none",
       "noneLabel": "Ninguna de las anteriores",
-      "noneImg": "assets/23_none.webp"
+      "noneImg": "/assets/23_none.webp"
     },
     {
       "id": "intro_lowimpact",
       "type": "info",
-      "image": "assets/25b.jpg",
+      "image": "/assets/25b.jpg",
       "title": "El tai chi en silla alivia la tensión en las rodillas y la espalda",
       "body": "El tai chi en silla es un ejercicio de bajo impacto y de intensidad moderada. Reduce al mínimo la tensión en articulaciones como las caderas, las rodillas y los tobillos.\n\nEsto lo convierte en una opción más segura que los entrenamientos de alto impacto: una **excelente opción si es usted propenso a sufrir molestias o dolores articulares.**"
     },
@@ -473,7 +473,7 @@ window.FUNNEL = {
     {
       "id": "intro_home",
       "type": "info",
-      "image": "assets/27b.jpg",
+      "image": "/assets/27b.jpg",
       "title": "Descubra las ventajas de hacer ejercicio en casa",
       "body": "El Tai Chi en silla convierte su hogar en un espacio tranquilo para practicar. Lo único que necesita es una silla resistente.\n\nFomenta **la fuerza, el equilibrio y la concentración**, para que pueda moverse con libertad, incluso en los días más tranquilos."
     },
@@ -508,7 +508,7 @@ window.FUNNEL = {
     {
       "id": "intro_lowdose",
       "type": "info",
-      "image": "assets/28.webp",
+      "image": "/assets/28.webp",
       "title": "Mito: «Hay que ser flexible para practicar tai chi»",
       "body": "Sorprendentemente, esta creencia generalizada disuade a muchas personas de siquiera probar los ejercicios de taichí.\n\n**El taichí en silla demuestra que esto no es cierto.** Está diseñado para todos los niveles de flexibilidad y le ayuda a desarrollar fuerza, equilibrio y concentración de forma gradual, desde la comodidad de su silla en casa."
     },
@@ -517,7 +517,7 @@ window.FUNNEL = {
       "type": "single",
       "section": "Actividad",
       "layout": "ld",
-      "cardImg": "assets/29.webp",
+      "cardImg": "/assets/29.webp",
       "q": "¿Le gusta o no le gusta?",
       "statement": "Estiramientos",
       "options": [
@@ -543,7 +543,7 @@ window.FUNNEL = {
       "type": "single",
       "section": "Actividad",
       "layout": "ld",
-      "cardImg": "assets/30.webp",
+      "cardImg": "/assets/30.webp",
       "q": "¿Le gusta o no le gusta?",
       "statement": "Zancada con silla",
       "options": [
@@ -569,7 +569,7 @@ window.FUNNEL = {
       "type": "single",
       "section": "Actividad",
       "layout": "ld",
-      "cardImg": "assets/31.webp",
+      "cardImg": "/assets/31.webp",
       "q": "¿Le gusta o no le gusta?",
       "statement": "Parte superior del cuerpo",
       "options": [
@@ -595,7 +595,7 @@ window.FUNNEL = {
       "type": "single",
       "section": "Actividad",
       "layout": "ld",
-      "cardImg": "assets/33a.webp",
+      "cardImg": "/assets/33a.webp",
       "q": "¿Le gusta o no le gusta?",
       "statement": "Fuerza del tronco",
       "options": [
@@ -622,9 +622,9 @@ window.FUNNEL = {
       "projChart": true,
       "headerTop": true,
       "title": "¡Conseguirá el cuerpo de sus sueños incluso antes de lo que espera!",
-      "lead": "We predict you'll be..",
-      "predict": "<span class='hl'>{goal}kg</span> by {projdate}",
-      "chartCap": "*Based on Tai Motion members with a similar goal",
+      "lead": "Creemos que usted será...",
+      "predict": "<span class='hl'>{goal} kg</span> por {projdate}",
+      "chartCap": "*Según los datos de Tai Motion miembros con un objetivo similar",
       "body": "A continuación, cuéntenos más sobre su estilo de vida para que podamos ayudarle a alcanzar su objetivo de forma aún más eficaz."
     },
     {
@@ -783,7 +783,7 @@ window.FUNNEL = {
     {
       "id": "intro_sleep",
       "type": "info",
-      "image": "assets/41.webp",
+      "image": "/assets/41.webp",
       "title": "El tai chi en silla puede favorecer un sueño mejor y más profundo",
       "body": "La práctica regular de **tai chi en silla le ayuda a conciliar el sueño más rápidamente** y a disfrutar de un sueño más profundo y reparador, de modo que se despierte con energía y listo para afrontar el día."
     },
@@ -868,7 +868,7 @@ window.FUNNEL = {
     {
       "id": "intro_nutrition",
       "type": "info",
-      "image": "assets/43b.jpg",
+      "image": "/assets/43b.jpg",
       "title": "Fomente su metabolismo para obtener resultados duraderos",
       "body": "Además, recibirá un plan nutricional personalizado que le ayudará a mantener su energía, su salud y su progreso a largo plazo — **sin dietas estrictas ni restricciones alimentarias.**"
     },
@@ -968,7 +968,7 @@ window.FUNNEL = {
     {
       "id": "intro_brain",
       "type": "info",
-      "image": "assets/49c.jpg",
+      "image": "/assets/49c.jpg",
       "title": "El tai chi en silla podría reducir el riesgo de padecer Alzheimer hasta en un 51 %",
       "body": "La práctica regular de tai chi en silla mantiene el cerebro sano, ya que mejora la circulación, agudiza la memoria y protege contra el deterioro cognitivo, aspectos todos ellos fundamentales para **las mujeres mayores de 40 años.**\n\nFuente: Harvard Health Publishing"
     },
@@ -1015,7 +1015,7 @@ window.FUNNEL = {
     {
       "id": "intro_safe",
       "type": "info",
-      "image": "assets/52b.jpg",
+      "image": "/assets/52b.jpg",
       "title": "Dar prioridad a su salud y seguridad",
       "body": "Adapte siempre los movimientos a su cuerpo.\n\nLe recomendamos que consulte con su médico o fisioterapeuta antes de iniciar una nueva actividad que pueda afectar a su bienestar físico o a su salud en general."
     },
@@ -1052,7 +1052,7 @@ window.FUNNEL = {
     {
       "id": "intro_menopause_weight",
       "type": "info",
-      "image": "assets/57b.png",
+      "image": "/assets/57b.png",
       "femaleOnly": true,
       "title": "La pérdida de peso en todas las etapas de la vida",
       "body": "La menopausia puede dificultar la pérdida de peso, ya que los cambios hormonales afectan al almacenamiento de grasa y a la sensibilidad a la insulina. El tai chi en silla y una nutrición personalizada pueden ayudar a afrontar estos cambios.\n\nEsto hace que sea más fácil alcanzar los **objetivos de pérdida de peso** y **de bienestar**."
@@ -1065,54 +1065,54 @@ window.FUNNEL = {
       "per": 1600,
       "cards": [
         {
-          "img": "assets/55_1d.jpg",
-          "text": "Created by women and for women!"
+          "img": "/assets/55_1d.jpg",
+          "text": "¡Creado por mujeres y para mujeres!"
         },
         {
-          "img": "assets/55_2d.jpg",
-          "text": "We focus on understanding your body, not dieting"
+          "img": "/assets/55_2d.jpg",
+          "text": "Nos centramos en comprender su cuerpo, no en las dietas"
         },
         {
-          "img": "assets/55_3d.jpg",
-          "text": "Our approach to weight loss is based on changing behavioral patterns"
+          "img": "/assets/55_3d.jpg",
+          "text": "Nuestro enfoque para la pérdida de peso se basa en el cambio de los patrones de comportamiento"
         },
         {
-          "img": "assets/55_4d.jpg",
-          "text": "You'll gain control over emotional eating patterns (for good)"
+          "img": "/assets/55_4d.jpg",
+          "text": "Conseguirá controlar los hábitos alimentarios emocionales (de una vez por todas)"
         },
         {
-          "img": "assets/55_5d.jpg",
-          "text": "Just follow your personalized action plan to reach your goal"
+          "img": "/assets/55_5d.jpg",
+          "text": "Solo tiene que seguir su plan de acción personalizado para alcanzar su objetivo"
         },
         {
-          "img": "assets/55_6d.jpg",
-          "text": "It only takes 5 minutes a day"
+          "img": "/assets/55_6d.jpg",
+          "text": "Solo se tarda 5 minutos al día"
         },
         {
-          "img": "assets/55_7d.jpg",
-          "text": "If you mess up, that's okay too!"
+          "img": "/assets/55_7d.jpg",
+          "text": "Si comete un error, ¡tampoco pasa nada!"
         },
         {
-          "img": "assets/55_8d.jpg",
-          "text": "No one is perfect, and we all fall off the wagon"
+          "img": "/assets/55_8d.jpg",
+          "text": "Nadie es perfecto, y a todos nos pasa alguna vez que nos descarrilamos"
         },
         {
-          "img": "assets/55_9d.jpg",
-          "text": "We'll help you get back on track"
+          "img": "/assets/55_9d.jpg",
+          "text": "Le ayudaremos a retomar el rumbo"
         }
       ]
     },
     {
       "id": "intro_goodhands",
       "type": "info",
-      "image": "assets/56b.jpg",
+      "image": "/assets/56b.jpg",
       "title": "Está en buenas manos. Únase a las 1,8 millones de mujeres satisfechas que ya están obteniendo resultados",
       "body": "Deje que nos ocupemos de usted mientras usted se cuida. Estamos a su disposición en todo momento."
     },
     {
       "id": "intro_almost",
       "type": "info",
-      "image": "assets/57c.jpg",
+      "image": "/assets/57c.jpg",
       "title": "¡Ya casi está!",
       "body": "Está a solo unos instantes de descubrir un camino personalizado para verse y sentirse mejor que nunca.\n\n¡Terminemos explorando qué es lo que le motiva!"
     },
@@ -1254,7 +1254,7 @@ window.FUNNEL = {
     {
       "id": "intro_sustainable",
       "type": "info",
-      "image": "assets/62.webp",
+      "image": "/assets/62.webp",
       "title": "¿Por qué la gente abandona sus intentos de adelgazar?",
       "body": "Precisamente por eso nuestro programa se centra en pequeños cambios sostenibles en su estilo de vida, para que pueda **transformar cómo se siente y disfrutar de una salud plena durante toda la vida.**"
     },
@@ -1324,14 +1324,14 @@ window.FUNNEL = {
     {
       "id": "intro_paced",
       "type": "info",
-      "image": "assets/65.webp",
+      "image": "/assets/65.webp",
       "title": "Perfecto: ¡hemos adaptado su plan a su ritmo!",
       "body": "Y esto no acaba aquí: seguiremos adaptando su plan personalizado a medida que su cuerpo y su nivel de actividad vayan cambiando a lo largo de su proceso."
     },
     {
       "id": "intro_focus20",
       "type": "info",
-      "image": "assets/66b.jpg",
+      "image": "/assets/66b.jpg",
       "title": "Tan solo 20 minutos de tai chi en silla mejoran la concentración y la capacidad intelectual",
       "body": "Aumenta el flujo sanguíneo hacia el cerebro y ayuda a **agudizar la memoria, mejorar la concentración y favorecer un pensamiento más lúcido.**"
     },
