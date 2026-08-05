@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head><base href="/"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1, maximum-scale=1" name="viewport"/>
-<script src="assets/theme.js?v=3"></script>
-<script src="assets/track.js?v=3"></script>
-<script src="assets/analytics.js?v=4"></script>
+<script src="/assets/theme.js?v=3"></script>
+<script src="/assets/track.js?v=3"></script>
+<script src="/assets/analytics.js?v=4"></script>
 <script>
 /* Resume from a recovery email: ?resume=<quiz_session_id> re-seeds the funnel (works on any
  * device), then reloads clean so the normal checkout flow picks up the prefilled session. */
@@ -23,11 +23,11 @@
   } catch (e) {}
 })();
 </script>
-<title>Chair Tai Chi — Your plan | Tai Motion</title>
+<title>Tai Chi en silla — Su plan | Tai Motion</title>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&amp;family=DM+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="assets/style.css?v=15" rel="stylesheet"/>
+<link href="/assets/style.css?v=15" rel="stylesheet"/>
 <style>
   /* ── Warm "Her Phase Map" theme override for checkout ── */
   :root{
@@ -170,137 +170,137 @@
 <!-- sticky top -->
 <div class="co-top">
 <div class="co-top-in">
-<span class="co-clock"><small>OFFER ENDS</small><span class="t" id="clock">05:00</span></span>
-<span class="co-top-brand"><img alt="" src="assets/logo2.webp"/>Tai Motion</span>
-<a class="btn-sm" href="#pricing">Get my plan</a>
+<span class="co-clock"><small>LA OFERTA FINALIZA</small><span class="t" id="clock">05:00</span></span>
+<span class="co-top-brand"><img alt="" src="/assets/logo2.webp"/> Tai Motion</span>
+<a class="btn-sm" href="#pricing">Consulte mi plan</a>
 </div>
 </div>
 <main class="co">
-<h2 class="sec-t" id="headline">Your plan is ready</h2>
+<h2 class="sec-t" id="headline">Su plan ya está listo</h2>
 <!-- before / after -->
 <div class="ba2">
 <div class="card before">
-<span class="tag">BEFORE</span>
+<span class="tag">ANTES</span>
 <div class="ph" style="background-image:url(assets/checkout_before.jpg)"></div>
 <div class="rows">
-<div class="r"><b>Energy levels</b><div class="bar red" data-w="energy-b"><i></i></div></div>
-<div class="r"><b>Steadiness</b><div class="bar red" data-w="steady-b"><i></i></div></div>
-<div class="r"><b>Weight</b><div class="bar red" data-w="weight-b"><i></i></div></div>
+<div class="r"><b>Niveles de energía</b><div class="bar red" data-w="energy-b"><i></i></div></div>
+<div class="r"><b>Estabilidad</b><div class="bar red" data-w="steady-b"><i></i></div></div>
+<div class="r"><b>Peso</b><div class="bar red" data-w="weight-b"><i></i></div></div>
 </div>
 </div>
 <div class="card after">
-<span class="tag">AFTER</span>
+<span class="tag">DESPUÉS</span>
 <div class="ph" style="background-image:url(assets/checkout_after.jpg)"></div>
 <div class="rows">
-<div class="r"><b>Energy levels</b><div class="bar green" data-w="energy-a"><i></i></div></div>
-<div class="r"><b>Steadiness</b><div class="bar green" data-w="steady-a"><i></i></div></div>
-<div class="r"><b>Weight</b><div class="bar green" data-w="weight-a"><i></i></div></div>
+<div class="r"><b>Niveles de energía</b><div class="bar green" data-w="energy-a"><i></i></div></div>
+<div class="r"><b>Estabilidad</b><div class="bar green" data-w="steady-a"><i></i></div></div>
+<div class="r"><b>Peso</b><div class="bar green" data-w="weight-a"><i></i></div></div>
 </div>
 </div>
 </div>
 <!-- personal summary -->
 <div class="sum">
-<h3>Your personal summary</h3>
-<p class="lead">Based on your quiz answers, it looks like you might have an <b>increased metabolic age</b>, which can lead to <b>excess body weight</b>.</p>
+<h3>Su resumen personal</h3>
+<p class="lead">A juzgar por sus respuestas al cuestionario, parece que podría tener un  <b>aumento de la edad metabólica</b>, lo que puede dar lugar a  <b>exceso de peso corporal</b>.</p>
 <div class="sum-card" id="bmiItem">
-<div class="sc-head"><span class="sc-ic">⚖️</span><span class="sc-t">Current BMI</span></div>
-<div class="bmi-track"><span class="bmi-bub" id="bmiBub" style="left:50%">You — <b id="bmiVal">—</b></span><span class="mk" id="bmiMk" style="left:50%"></span></div>
-<div class="bmi-scale"><span>Underweight</span><span>Healthy</span><span>Overweight</span><span>Obese</span></div>
-<div class="stress-alert"><span class="sa-ic">ⓘ</span> Your weight category: <b id="bmiCat">—</b></div>
+<div class="sc-head"><span class="sc-ic">⚖️</span><span class="sc-t">IMC actual</span></div>
+<div class="bmi-track"><span class="bmi-bub" id="bmiBub" style="left:50%">Usted —  <b id="bmiVal">—</b></span><span class="mk" id="bmiMk" style="left:50%"></span></div>
+<div class="bmi-scale"><span>Bajo peso</span><span>Saludable</span><span>Sobrepeso</span><span>Obesidad</span></div>
+<div class="stress-alert"><span class="sa-ic">ⓘ</span>  Su categoría de peso:  <b id="bmiCat">—</b></div>
 </div>
 <div class="sum-card">
-<div class="sc-head"><span class="sc-ic">⏳</span><span class="sc-t">Metabolic age</span><span class="sc-big red" id="metaVal">—</span></div>
-<div class="stress-alert"><span class="sa-ic">ⓘ</span> Your metabolism is: <b>Slow</b></div>
+<div class="sc-head"><span class="sc-ic">⏳</span><span class="sc-t">Edad metabólica</span><span class="sc-big red" id="metaVal">—</span></div>
+<div class="stress-alert"><span class="sa-ic">ⓘ</span>  Su metabolismo es:  <b>Lento</b></div>
 </div>
 <div class="sum-card">
-<div class="sc-head"><span class="sc-ic">⏰</span><span class="sc-t">Personalized Chair Tai Chi plan</span></div>
-<div class="sc-row"><span class="sc-big">7 min</span><span class="rec-tag">Recommended duration</span></div>
+<div class="sc-head"><span class="sc-ic">⏰</span><span class="sc-t">Programa personalizado de tai chi en silla</span></div>
+<div class="sc-row"><span class="sc-big">7 min</span><span class="rec-tag">Duración recomendada</span></div>
 </div>
 <div class="sum-card">
-<div class="sc-head"><span class="sc-ic">💧</span><span class="sc-t">Water intake</span></div>
+<div class="sc-head"><span class="sc-ic">💧</span><span class="sc-t">Toma de agua</span></div>
 <div class="glasses"><span class="wg"></span><span class="wg"></span><span class="wg"></span><span class="wg"></span><span class="wg"></span><span class="wg"></span><span class="wg"></span><span class="wg"></span></div>
-<div class="sc-row"><span class="sc-big">6–8 glasses</span><span class="rec-tag">Recommended daily intake</span></div>
+<div class="sc-row"><span class="sc-big">6-8 vasos</span><span class="rec-tag">Ingesta diaria recomendada</span></div>
 </div>
 </div>
 <!-- pricing -->
-<h2 class="sec-t" id="pricing">Get visible results in <span class="g">4 weeks</span></h2>
+<h2 class="sec-t" id="pricing">Consiga resultados visibles en  <span class="g">4 semanas</span></h2>
 <div class="promo">
-<span class="code">✓ Discount applied</span>
-<span class="clk" id="clock2">05:00<small>MIN  SEC</small></span>
+<span class="code">✓ Descuento aplicado</span>
+<span class="clk" id="clock2">05:00<small>MIN  SEC</small></span>
 </div>
 <div class="plans-slot"></div>
-<div class="twox"><span class="ic">💪</span><div>People using the plan for <b>12 weeks</b> achieve <b>double the results</b> as for 4 weeks<small>*Based on Tai Motion member results</small></div></div>
-<p class="guarantee">🔒 Secure checkout · Cancel anytime in your account</p>
+<div class="twox"><span class="ic">💪</span><div>Las personas que utilizan el plan para  <b>12 semanas</b>  lograr  <b>duplicar los resultados</b>  durante 4 semanas<small>*Según los resultados de Tai Motion miembros</small></div></div>
+<p class="guarantee">🔒 Pago seguro · Puede cancelar en cualquier momento desde su cuenta</p>
 <div class="cta-bar" style="position:static;background:none;padding:0 0 8px">
-<div class="cta-inner"><button class="btn" id="getPlan">Get my plan</button></div>
+<div class="cta-inner"><button class="btn" id="getPlan">Consulte mi plan</button></div>
 </div>
 <p class="note" id="renewNote" style="text-align:center"></p>
 <!-- featured in — topic-level claim about tai chi as a practice (not a claim that Tai Motion was reviewed) -->
 <div class="featured">
-<div class="flabel">Tai Chi workouts featured in</div>
+<div class="flabel">Entrenamientos de tai chi que aparecen en</div>
 <div class="logos">
-<img alt="Business Insider" src="assets/checkout-business-insider.webp"/>
-<img alt="The New York Times" src="assets/checkout-ny-times.webp"/>
-<img alt="Women's Health" src="assets/checkout-womens-health.webp"/>
-<img alt="Men's Health" src="assets/checkout-mens-health.webp"/>
-<img alt="Shape" src="assets/checkout-shape.webp"/>
+<img alt="Business Insider" src="/assets/checkout-business-insider.webp"/>
+<img alt="The New York Times" src="/assets/checkout-ny-times.webp"/>
+<img alt="Salud de la mujer" src="/assets/checkout-womens-health.webp"/>
+<img alt="Salud masculina" src="/assets/checkout-mens-health.webp"/>
+<img alt="Forma" src="/assets/checkout-shape.webp"/>
 </div>
 </div>
 <!-- success stories (illustrative; original copy) -->
-<h2 class="sec-t">Member stories</h2>
+<h2 class="sec-t">Historias de nuestros socios</h2>
 <div class="story">
-<img alt="" class="ba-img" src="assets/ba_1.webp"/>
+<img alt="" class="ba-img" src="/assets/ba_1.webp"/>
 <div class="body">
-<div class="who"><span>Margaret, 43</span><span class="stars">★★★★★</span></div>
-<p>"I can follow along from my armchair. After a few weeks I feel steadier moving around the house."</p>
+<div class="who"><span>Margaret, 43 años</span><span class="stars">★★★★★</span></div>
+<p>«Puedo seguir el programa desde mi sillón. Al cabo de unas semanas, me siento más seguro al moverme por casa».</p>
 </div>
 </div>
 <div class="story">
-<img alt="" class="ba-img" src="assets/ba_2.webp"/>
+<img alt="" class="ba-img" src="/assets/ba_2.webp"/>
 <div class="body">
-<div class="who"><span>Patricia, 62</span><span class="stars">★★★★★</span></div>
-<p>"Short sessions I can actually keep up with. My posture and mood have both improved."</p>
+<div class="who"><span>Patricia, 62 años</span><span class="stars">★★★★★</span></div>
+<p>«Son sesiones cortas que realmente puedo seguir el ritmo. Tanto mi postura como mi estado de ánimo han mejorado».</p>
 </div>
 </div>
 <!-- reviews -->
-<h2 class="sec-t">Customer reviews</h2>
+<h2 class="sec-t">Opiniones de los clientes</h2>
 <div class="rev">
-<div class="top"><img alt="" src="assets/checkout_01.webp"/><span class="n">Brenda</span><span class="stars">★★★★★</span></div>
-<p>"I never write reviews, but this is easy to follow and I look forward to it. I feel more confident on my feet."</p>
+<div class="top"><img alt="" src="/assets/checkout_01.webp"/><span class="n">Brenda</span><span class="stars">★★★★★</span></div>
+<p>«Nunca suelo escribir reseñas, pero este curso es fácil de seguir y lo espero con ilusión. Me siento más seguro de mí mismo».</p>
 </div>
 <div class="rev">
-<div class="top"><img alt="" src="assets/checkout_02.webp"/><span class="n">Sandra</span><span class="stars">★★★★★</span></div>
-<p>"No more stiff joints first thing in the morning. Gentle, but it really does something."</p>
+<div class="top"><img alt="" src="/assets/checkout_02.webp"/><span class="n">Sandra</span><span class="stars">★★★★★</span></div>
+<p>«Se acabó la rigidez en las articulaciones nada más levantarse. Es suave, pero realmente da resultados».</p>
 </div>
 <div class="rev">
-<div class="top"><img alt="" src="assets/checkout_03.webp"/><span class="n">Amelia</span><span class="stars">★★★★★</span></div>
-<p>"Calmer, steadier, and my friends say I seem more energetic. Easy to fit into my day."</p>
+<div class="top"><img alt="" src="/assets/checkout_03.webp"/><span class="n">Amelia</span><span class="stars">★★★★★</span></div>
+<p>«Me siento más tranquilo y sereno, y mis amigos dicen que parezco tener más energía. Es fácil incorporarlo a mi rutina diaria».</p>
 </div>
 <!-- results badges -->
 <div class="badges">
-<div class="b"><div class="ic">🎯</div><div class="l1">Perfect for</div><div class="l2">Ages 40+</div></div>
-<div class="b"><div class="ic">🌿</div><div class="l1">Goal</div><div class="l2">Balance &amp; calm</div></div>
+<div class="b"><div class="ic">🎯</div><div class="l1">Ideal para</div><div class="l2">A partir de 40 años</div></div>
+<div class="b"><div class="ic">🌿</div><div class="l1">Objetivo</div><div class="l2">Equilibrio y tranquilidad</div></div>
 </div>
 <!-- pricing (repeat) -->
-<h2 class="sec-t">Get visible results in <span class="g">4 weeks</span></h2>
+<h2 class="sec-t">Consiga resultados visibles en  <span class="g">4 semanas</span></h2>
 <div class="promo">
-<span class="code">✓ Discount applied</span>
-<span class="clk" id="clock3">05:00<small>MIN  SEC</small></span>
+<span class="code">✓ Descuento aplicado</span>
+<span class="clk" id="clock3">05:00<small>MIN  SEC</small></span>
 </div>
 <div class="plans-slot"></div>
-<div class="twox"><span class="ic">💪</span><div>People using the plan for <b>12 weeks</b> achieve <b>double the results</b> as for 4 weeks<small>*Based on Tai Motion member results</small></div></div>
-<p class="guarantee">🔒 Secure checkout · Cancel anytime in your account</p>
+<div class="twox"><span class="ic">💪</span><div>Las personas que utilizan el plan para  <b>12 semanas</b>  lograr  <b>duplicar los resultados</b>  durante 4 semanas<small>*Según los resultados de Tai Motion miembros</small></div></div>
+<p class="guarantee">🔒 Pago seguro · Puede cancelar en cualquier momento desde su cuenta</p>
 <div class="cta-bar" style="position:static;background:none;padding:0 0 8px">
-<div class="cta-inner"><button class="btn" id="getPlan2">Get my plan</button></div>
+<div class="cta-inner"><button class="btn" id="getPlan2">Consulte mi plan</button></div>
 </div>
 <div class="mbg">
-<h4>Cancel anytime</h4>
-<p>You can cancel from your account at any time to stop future renewals. Your introductory price and renewal terms are shown above. Billing, automatic renewals and our refund terms are set out in our <a href="refund-policy.html" rel="noopener" target="_blank">Subscription &amp; Refund Policy</a> — please review before ordering.</p>
+<h4>Puede cancelar en cualquier momento</h4>
+<p>Puede cancelar la suscripción desde su cuenta en cualquier momento para impedir futuras renovaciones. El precio de lanzamiento y las condiciones de renovación se indican más arriba. La facturación, las renovaciones automáticas y nuestras condiciones de reembolso se detallan en nuestra  <a href="/es/refund-policy.html" rel="noopener" target="_blank">Política de suscripción y reembolso</a>  — Le rogamos que lo revise antes de realizar el pedido.</p>
 </div>
 </main>
-<p class="disclaimer">This is a general wellness and movement program. It is not medical advice and is not
-    intended to diagnose, treat, cure, or prevent any disease. Talk to a healthcare professional before starting
-    a new activity program, especially if you have a medical condition.</p>
+<p class="disclaimer">Se trata de un programa general de bienestar y actividad física. No constituye un consejo médico y no
+    pretende diagnosticar, tratar, curar ni prevenir ninguna enfermedad. Consulte a un profesional sanitario antes de comenzar
+    un nuevo programa de actividad física, especialmente si padece alguna afección médica.</p>
 <script>
     const PLANS = [
       { id: "1w",  name: "1-week plan",  old: "21.99", intro: "5.19",  perday: "0.74" },
@@ -391,6 +391,6 @@
       }));
     })();
   </script>
-<script src="assets/testbar.js?v=1"></script>
-<div style="text-align:center;padding:18px 0"><a href="/es/checkout.html" id="lang-link-ck" style="color:#8a9585;text-decoration:underline;font:500 15px system-ui,sans-serif">Español</a></div></body>
+<script src="/assets/testbar.js?v=1"></script>
+<div style="text-align:center;padding:18px 0"><a href="/checkout.html" id="lang-link-ck" style="color:#8a9585;text-decoration:underline;font:500 15px system-ui,sans-serif">English</a></div></body>
 </html>
