@@ -24,6 +24,19 @@ export async function sha256Hex(input: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// _fbc is `fb.<subdomainIndex>.<creationTime>.<fbclid>` and Meta reads creationTime as UNIX
+// MILLISECONDS. We carry click time in SECONDS internally (track.js -> fbclid_t -> here), so the
+// unit conversion belongs here, at the Meta boundary. Sending seconds dated every click to
+// ~20 Jan 1970, which Events Manager reported as "creationTime is dated before the click ID was
+// created" against roughly half of all Purchase events.
+// 1e11 separates the two units unambiguously: as seconds it is the year 5138, as ms it is 1973 —
+// no real click time can sit on the wrong side of it.
+const MS_CUTOFF = 1e11;
+
+function toMillis(t: number): number {
+  return Math.round(t < MS_CUTOFF ? t * 1000 : t);
+}
+
 // Build the _fbc value from an ad-click id. Null when fbclid is absent.
 export function buildFbc(
   fbclid?: string | null,
@@ -31,8 +44,22 @@ export function buildFbc(
 ): string | null {
   if (!fbclid) return null;
   const n = typeof clickTimeSec === 'string' ? Number(clickTimeSec) : clickTimeSec;
-  const t = (typeof n === 'number' && Number.isFinite(n)) ? Math.floor(n) : Math.floor(Date.now() / 1000);
+  const t = (typeof n === 'number' && Number.isFinite(n) && n > 0) ? toMillis(n) : Date.now();
   return `fb.1.${t}.${fbclid}`;
+}
+
+// Repair an already-assembled fbc whose creationTime is in seconds. Callers hand us fbc strings
+// that were built and stored long before this send — Stripe subscription and PaymentIntent
+// metadata (replayed by the webhook, and copied onto every upsell charge) still holds pre-fix
+// values. Anything that isn't a recognisable fbc passes through untouched rather than being
+// dropped: a malformed fbc is Meta's problem to ignore, a missing one costs us attribution.
+export function normalizeFbc(fbc?: string | null): string | null {
+  if (!fbc) return null;
+  const m = /^(fb\.\d+)\.(\d+)\.(.+)$/.exec(fbc);   // fbclid may itself contain dots
+  if (!m) return fbc;
+  const t = Number(m[2]);
+  if (!Number.isFinite(t) || t <= 0) return fbc;
+  return `${m[1]}.${toMillis(t)}.${m[3]}`;
 }
 
 // Pure builders for the Graph API request body. No env, no I/O — fully testable.
@@ -46,7 +73,7 @@ function buildEventPayload(
   if (input.emailHash) user_data.em = [input.emailHash];
   if (input.clientIp) user_data.client_ip_address = input.clientIp;
   if (input.clientUserAgent) user_data.client_user_agent = input.clientUserAgent;
-  if (input.fbc) user_data.fbc = input.fbc;
+  if (input.fbc) user_data.fbc = normalizeFbc(input.fbc);
   const event: Record<string, unknown> = {
     event_name: eventName,
     event_id: input.eventId,
