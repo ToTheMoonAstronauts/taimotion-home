@@ -637,19 +637,19 @@ window.FUNNEL = {
         {
           "value": "lots",
           "label": "Últimamente lo noto mucho",
-          "short": "A lot lately",
+          "short": "Últimamente, muchas cosas",
           "emoji": "😫"
         },
         {
           "value": "some",
           "label": "Tengo mis altibajos",
-          "short": "Ups & downs",
+          "short": "Altibajos",
           "emoji": "😐"
         },
         {
           "value": "steady",
           "label": "En general, me siento bastante estable",
-          "short": "Mostly steady",
+          "short": "En general, estable",
           "emoji": "😌"
         }
       ]
@@ -737,13 +737,13 @@ window.FUNNEL = {
         {
           "value": "often",
           "label": "Con frecuencia",
-          "short": "Often",
+          "short": "A menudo",
           "emoji": "😌"
         },
         {
           "value": "rare",
           "label": "De vez en cuando",
-          "short": "Rarely",
+          "short": "Rara vez",
           "emoji": "🤭"
         },
         {
@@ -859,19 +859,19 @@ window.FUNNEL = {
         {
           "value": "low",
           "label": "Nada o muy poco",
-          "short": "Barely any",
+          "short": "Prácticamente ninguno",
           "emoji": "🙅"
         },
         {
           "value": "fair",
           "label": "Bastante",
-          "short": "A fair bit",
+          "short": "Bastante",
           "emoji": "🍎"
         },
         {
           "value": "lots",
           "label": "Quizá sea un conejo",
-          "short": "Loads",
+          "short": "Cargas",
           "emoji": "🥕"
         }
       ]
@@ -1322,19 +1322,19 @@ window.FUNNEL = {
         {
           "value": "fast",
           "label": "Lo antes posible",
-          "short": "Quickly",
+          "short": "Rápidamente",
           "emoji": "⚡"
         },
         {
           "value": "between",
           "label": "En algún punto entre ambos",
-          "short": "In between",
+          "short": "Entre medias",
           "emoji": "⚖️"
         },
         {
           "value": "slow",
           "label": "Con calma y constancia se consigue",
-          "short": "Slow & steady",
+          "short": "Despacio pero con constancia",
           "emoji": "🌱"
         }
       ]
