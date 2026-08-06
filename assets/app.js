@@ -567,7 +567,9 @@
       '<a href="privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.'));
     const btn = inlineCta("Continue", () => {
       const v = inp.value.trim(); if (!okEmail(v)) { inp.focus(); inp.style.borderColor = "#ef6a6a"; return; }
-      S.email = v; S.status = "email_captured"; window.CTC.saveSession();
+      S.email = v; S.status = "email_captured";
+      S.locale = (location.pathname.indexOf("/es/") === 0) ? "es" : "en";   // funnel language -> lead locale (ES emails)
+      window.CTC.saveSession();
       if (window.API) API.submitQuiz(S);
       go(1);
     }, !okEmail(S.email));
