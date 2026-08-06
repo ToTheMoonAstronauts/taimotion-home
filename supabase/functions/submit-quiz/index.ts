@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
       name: s.name ?? null,
       selected_plan: s.selected_plan ?? null,
       status: s.status || "in_progress",
+      locale: s.locale === "es" ? "es" : "en",
     };
     if (!row.id) {
       return new Response(JSON.stringify({ error: "missing id" }), {
