@@ -62,9 +62,10 @@ Deno.serve(async (req) => {
       onConflict: "id",
     });
     if (error) throw error;
-    // After the primary work succeeded. Anonymous — never put lead PII in Slack.
+    // After the primary work succeeded. The message text stays PII-free, but the email is
+    // passed for the PostHog replay link — it ends up percent-encoded in that URL.
     if (isNewLead) {
-      await notifySlack(fmtNewLead(row.funnel, row.ab_test_variant));
+      await notifySlack(fmtNewLead(row.funnel, row.ab_test_variant, row.email));
       // Meta CAPI Lead. event_id = "lead_<session id>" — the browser pixel fires
       // Lead with the same id at email capture, so Meta dedups the pair.
       await sendLead({
