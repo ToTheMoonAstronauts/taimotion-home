@@ -450,7 +450,7 @@ window.FUNNEL = {
       "options": [
         {
           "value": "home",
-          "label": "Inicio",
+          "label": "En casa",
           "emoji": "🏠"
         },
         {
@@ -533,7 +533,7 @@ window.FUNNEL = {
         },
         {
           "value": "like",
-          "label": "Como",
+          "label": "Me gusta",
           "emoji": "👍"
         }
       ]
@@ -559,7 +559,7 @@ window.FUNNEL = {
         },
         {
           "value": "like",
-          "label": "Como",
+          "label": "Me gusta",
           "emoji": "👍"
         }
       ]
@@ -585,7 +585,7 @@ window.FUNNEL = {
         },
         {
           "value": "like",
-          "label": "Como",
+          "label": "Me gusta",
           "emoji": "👍"
         }
       ]
@@ -611,7 +611,7 @@ window.FUNNEL = {
         },
         {
           "value": "like",
-          "label": "Como",
+          "label": "Me gusta",
           "emoji": "👍"
         }
       ]
