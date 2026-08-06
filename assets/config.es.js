@@ -164,8 +164,8 @@ window.FUNNEL = {
       "q": "¿Qué estatura tiene?",
       "sub": "Utilizaremos esta información para determinar su ritmo ideal de pérdida de peso",
       "units": [
-        "ft",
-        "cm"
+        "cm",
+        "ft"
       ],
       "field": "height"
     },
@@ -175,8 +175,8 @@ window.FUNNEL = {
       "section": "Mi perfil",
       "q": "¿Cuál es su peso actual?",
       "units": [
-        "lb",
-        "kg"
+        "kg",
+        "lb"
       ],
       "field": "weight",
       "computeBMI": true
@@ -188,8 +188,8 @@ window.FUNNEL = {
       "q": "¡Entendido! ¿Y cuál es su peso objetivo?",
       "sub": "Basta con una cifra aproximada; podrá modificarla fácilmente más adelante.",
       "units": [
-        "lb",
-        "kg"
+        "kg",
+        "lb"
       ],
       "field": "goal_weight",
       "noteTitle": "¡Un objetivo realista!",
