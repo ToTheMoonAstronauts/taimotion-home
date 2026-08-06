@@ -142,7 +142,7 @@ window.FUNNEL = {
         },
         {
           "value": "arms",
-          "label": "Armas",
+          "label": "Brazos",
           "img": "/assets/8_arms.webp"
         },
         {
@@ -159,7 +159,7 @@ window.FUNNEL = {
     },
     {
       "id": "height",
-      "type": "input",
+      "type": "slider",
       "section": "Mi perfil",
       "q": "¿Qué estatura tiene?",
       "sub": "Utilizaremos esta información para determinar su ritmo ideal de pérdida de peso",
@@ -171,7 +171,7 @@ window.FUNNEL = {
     },
     {
       "id": "weight",
-      "type": "input",
+      "type": "slider",
       "section": "Mi perfil",
       "q": "¿Cuál es su peso actual?",
       "units": [
@@ -183,7 +183,7 @@ window.FUNNEL = {
     },
     {
       "id": "goal_weight",
-      "type": "input",
+      "type": "slider",
       "section": "Mi perfil",
       "q": "¡Entendido! ¿Y cuál es su peso objetivo?",
       "sub": "Basta con una cifra aproximada; podrá modificarla fácilmente más adelante.",
@@ -207,8 +207,8 @@ window.FUNNEL = {
       "type": "info",
       "projChart": true,
       "headerTop": true,
-      "title": "Prevemos que alcanzará <span class='hl'>{goal} kg</span> para {projdate}",
-      "blockTitle": "Solo tiene que perder {lose} kg",
+      "title": "Prevemos que alcanzará <span class='hl'>{goal}{wu}</span> en {projdate}",
+      "blockTitle": "Solo tiene que perder {lose} {wu}",
       "blockBody": "Eso supone aproximadamente el {pct} % de su peso corporal. Según la Asociación Americana del Corazón, alcanzar este objetivo puede reducir el riesgo de padecer diabetes, hipertensión y otras afecciones de salud."
     },
     {
@@ -404,7 +404,7 @@ window.FUNNEL = {
       "title": "¡Una gran noticia: cumple los requisitos!",
       "lead": "Parece que el «Tai Chi en silla» es ideal para usted; es hora de alcanzar sus objetivos.",
       "blockTitle": "Según los datos históricos de Tai Motion sobre las mujeres en su {decade}",
-      "blockBody": "¡Empiece a ver resultados en tan solo una semana y siga perdiendo peso de forma constante hasta alcanzar su objetivo de **{goal} kg**!"
+      "blockBody": "¡Empiece a ver resultados en tan solo una semana y siga perdiendo peso de forma constante hasta alcanzar su objetivo **{goal} {wu}**!"
     },
     {
       "id": "pain_points",
@@ -623,7 +623,7 @@ window.FUNNEL = {
       "headerTop": true,
       "title": "¡Conseguirá el cuerpo de sus sueños incluso antes de lo que espera!",
       "lead": "Creemos que usted será...",
-      "predict": "<span class='hl'>{goal} kg</span> por {projdate}",
+      "predict": "<span class='hl'>{goal}{wu}</span> por {projdate}",
       "chartCap": "*Según los datos de Tai Motion miembros con un objetivo similar",
       "body": "A continuación, cuéntenos más sobre su estilo de vida para que podamos ayudarle a alcanzar su objetivo de forma aún más eficaz."
     },
@@ -631,21 +631,25 @@ window.FUNNEL = {
       "id": "tension",
       "type": "single",
       "section": "Estilo de vida",
+      "layout": "ld",
       "q": "¿Se siente alguna vez tenso mentalmente o nervioso?",
       "options": [
         {
           "value": "lots",
           "label": "Últimamente lo noto mucho",
+          "short": "A lot lately",
           "emoji": "😫"
         },
         {
           "value": "some",
           "label": "Tengo mis altibajos",
+          "short": "Ups & downs",
           "emoji": "😐"
         },
         {
           "value": "steady",
           "label": "En general, me siento bastante estable",
+          "short": "Mostly steady",
           "emoji": "😌"
         }
       ]
@@ -722,6 +726,7 @@ window.FUNNEL = {
       "id": "rested",
       "type": "single",
       "section": "Estilo de vida",
+      "layout": "ld",
       "q": "¿Con qué frecuencia se despierta sintiéndose descansado?",
       "options": [
         {
@@ -732,11 +737,13 @@ window.FUNNEL = {
         {
           "value": "often",
           "label": "Con frecuencia",
+          "short": "Often",
           "emoji": "😌"
         },
         {
           "value": "rare",
           "label": "De vez en cuando",
+          "short": "Rarely",
           "emoji": "🤭"
         },
         {
@@ -845,22 +852,26 @@ window.FUNNEL = {
       "id": "produce",
       "type": "single",
       "section": "Estilo de vida",
+      "layout": "ld",
       "q": "¿Cómo es su consumo de frutas y verduras?",
       "sub": "En general, ¿cuántas piezas de fruta y verdura consume al día?",
       "options": [
         {
           "value": "low",
           "label": "Nada o muy poco",
+          "short": "Barely any",
           "emoji": "🙅"
         },
         {
           "value": "fair",
           "label": "Bastante",
+          "short": "A fair bit",
           "emoji": "🍎"
         },
         {
           "value": "lots",
           "label": "Quizá sea un conejo",
+          "short": "Loads",
           "emoji": "🥕"
         }
       ]
@@ -1305,19 +1316,26 @@ window.FUNNEL = {
       "type": "single",
       "section": "Estilo de vida",
       "sectionLabel": "Ya casi estamos",
+      "layout": "ld",
       "q": "¡Su plan de tai chi en silla ya está listo! ¿En cuánto tiempo desea ponerse en forma?",
       "options": [
         {
           "value": "fast",
-          "label": "Lo antes posible"
-        },
-        {
-          "value": "slow",
-          "label": "Con calma y constancia se consigue"
+          "label": "Lo antes posible",
+          "short": "Quickly",
+          "emoji": "⚡"
         },
         {
           "value": "between",
-          "label": "En algún punto entre ambos"
+          "label": "En algún punto entre ambos",
+          "short": "In between",
+          "emoji": "⚖️"
+        },
+        {
+          "value": "slow",
+          "label": "Con calma y constancia se consigue",
+          "short": "Slow & steady",
+          "emoji": "🌱"
         }
       ]
     },
@@ -1381,5 +1399,105 @@ window.FUNNEL = {
       "id": "goals",
       "type": "goals"
     }
-  ]
+  ],
+  "abTestName": "quiz_length_2026_07",
+  "variants": {
+    "b": {
+      "secs": [
+        "My profile",
+        "Activity"
+      ],
+      "cut": [
+        "tension",
+        "intro_stress",
+        "water",
+        "mood",
+        "intro_focus",
+        "rested",
+        "sleep_improve",
+        "intro_sleep",
+        "diet",
+        "produce",
+        "intro_nutrition",
+        "cravings",
+        "habits",
+        "tracker",
+        "intro_brain",
+        "medications",
+        "mobility",
+        "intro_safe",
+        "menopause",
+        "intro_menopause_weight",
+        "loader",
+        "intro_goodhands",
+        "intro_almost",
+        "main_reason",
+        "motivates",
+        "motivation_level",
+        "obstacles",
+        "intro_sustainable",
+        "explore",
+        "pace",
+        "intro_paced",
+        "intro_focus20",
+        "daypart"
+      ],
+      "copy": {
+        "projection_2": {
+          "body": "Ahora vamos a crear su plan personalizado."
+        }
+      }
+    },
+    "c": {
+      "secs": [
+        "My profile",
+        "Activity"
+      ],
+      "cut": [
+        "tension",
+        "intro_stress",
+        "water",
+        "mood",
+        "intro_focus",
+        "rested",
+        "sleep_improve",
+        "intro_sleep",
+        "diet",
+        "produce",
+        "intro_nutrition",
+        "cravings",
+        "habits",
+        "tracker",
+        "intro_brain",
+        "medications",
+        "mobility",
+        "intro_safe",
+        "menopause",
+        "intro_menopause_weight",
+        "loader",
+        "intro_goodhands",
+        "intro_almost",
+        "main_reason",
+        "motivates",
+        "motivation_level",
+        "obstacles",
+        "intro_sustainable",
+        "explore",
+        "pace",
+        "intro_paced",
+        "intro_focus20",
+        "daypart",
+        "height",
+        "weight",
+        "goal_weight",
+        "projection_1",
+        "projection_2"
+      ],
+      "copy": {
+        "intro_eligible": {
+          "blockBody": "¡Empiece a ver resultados en tan solo una semana y siga avanzando de forma constante hacia su objetivo!"
+        }
+      }
+    }
+  }
 };
