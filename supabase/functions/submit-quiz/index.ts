@@ -1,0 +1,87 @@
+import { createClient } from "jsr:@supabase/supabase-js@2";
+import { buildFbc, sendLead } from "../_shared/meta-capi.ts";
+import { fmtNewLead, notifySlack } from "../_shared/slack.ts";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  try {
+    const db = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const b = await req.json();
+    const s = b.session || b;
+    const row = {
+      id: s.id,
+      funnel: s.funnel || "chair-taichi",
+      gender: s.gender ?? null,
+      ab_test_name: s.ab_test_name ?? null,
+      ab_test_variant: s.ab_test_variant ?? null,
+      answers: s.answers || {},
+      age_band: s.age_band ?? null,
+      height_cm: s.height_cm ?? null,
+      weight_kg: s.weight_kg ?? null,
+      goal_weight_kg: s.goal_weight_kg ?? null,
+      bmi: s.bmi ?? null,
+      // Unit system the visitor took the quiz in. Validated against the two
+      // literals so an arbitrary client-supplied string never reaches a column
+      // the member app reads. Body values above stay canonical metric.
+      measurement_system: s.units === "imperial" || s.units === "metric"
+        ? s.units
+        : null,
+      metabolic_age: s.metabolic_age ?? null,
+      recommended_track: s.recommended_track ?? null,
+      email: s.email ?? null,
+      name: s.name ?? null,
+      selected_plan: s.selected_plan ?? null,
+      status: s.status || "in_progress",
+    };
+    if (!row.id) {
+      return new Response(JSON.stringify({ error: "missing id" }), {
+        status: 400,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+    // Lead detection BEFORE the upsert: the quiz upserts on every answer, so
+    // alert only when this write is the one that first captures an email.
+    let isNewLead = false;
+    if (row.email) {
+      const { data: prior } = await db.from("quiz_sessions").select("email")
+        .eq("id", row.id).maybeSingle();
+      isNewLead = !prior?.email;
+    }
+    const { error } = await db.from("quiz_sessions").upsert(row, {
+      onConflict: "id",
+    });
+    if (error) throw error;
+    // After the primary work succeeded. Anonymous — never put lead PII in Slack.
+    if (isNewLead) {
+      await notifySlack(fmtNewLead(row.funnel, row.ab_test_variant));
+      // Meta CAPI Lead. event_id = "lead_<session id>" — the browser pixel fires
+      // Lead with the same id at email capture, so Meta dedups the pair.
+      await sendLead({
+        eventId: `lead_${row.id}`,
+        email: row.email,
+        fbc: buildFbc(s.fbclid, s.fbclid_t),
+        clientIp: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
+        clientUserAgent: req.headers.get("user-agent"),
+        eventSourceUrl: "https://taimotion.com/quiz.html",
+      });
+    }
+    return new Response(JSON.stringify({ ok: true, id: row.id }), {
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+      status: 500,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+});

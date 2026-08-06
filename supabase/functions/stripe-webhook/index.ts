@@ -1,16 +1,12 @@
 import Stripe from 'npm:stripe@17';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { sendPurchase } from '../_shared/meta-capi.ts';
+import { classifyInvoice } from '../_shared/billing.ts';
+import { sendPurchase, sendUpsellPurchase } from '../_shared/meta-capi.ts';
+import { fmtCancelScheduled, fmtPaymentFailed, fmtRefund, fmtSubscriptionEnded, fmtSubscriptionPaid, fmtUpsellPaid, notifySlack } from '../_shared/slack.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2024-06-20' });
 const WHSEC = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
-const SLACK = Deno.env.get('SLACK_WEBHOOK_URL');
 const svc = () => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-
-async function notify(text: string) {
-  if (!SLACK) return;
-  try { await fetch(SLACK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }); } catch (_) { /* never block provisioning on Slack */ }
-}
 
 async function userForCustomer(db: ReturnType<typeof svc>, customerId: string): Promise<string | null> {
   const { data } = await db.from('users').select('id').eq('stripe_customer_id', customerId).maybeSingle();
@@ -24,10 +20,13 @@ async function emailForUser(db: ReturnType<typeof svc>, userId: string | null): 
 
 // Mirror a subscription into public.subscriptions, then recompute the member's access from the
 // FULL set of their base subscriptions (source of truth) — never from just the event that arrived.
-async function syncSubscription(db: ReturnType<typeof svc>, subId: string) {
+// Returns the subscription's metadata so callers can classify the invoice (upsell_id / test / the
+// Meta CAPI identity) without paying for a second stripe.subscriptions.retrieve.
+async function syncSubscription(db: ReturnType<typeof svc>, subId: string): Promise<Record<string, string>> {
   const sub = await stripe.subscriptions.retrieve(subId);
+  const meta = (sub.metadata || {}) as Record<string, string>;
   const userId = await userForCustomer(db, sub.customer as string);
-  if (!userId) return;
+  if (!userId) return meta;
   const iso = (t: number) => new Date(t * 1000).toISOString();
   // Audit trail: mirror THIS subscription into public.subscriptions.
   await db.from('subscriptions').upsert({
@@ -39,7 +38,7 @@ async function syncSubscription(db: ReturnType<typeof svc>, subId: string) {
     updated_at: new Date().toISOString(),
   });
   // Upsell subscriptions (tagged with upsell_id) never drive base access.
-  if (sub.metadata?.upsell_id) return;
+  if (sub.metadata?.upsell_id) return meta;
 
   // SOURCE OF TRUTH: look at ALL of the customer's base (non-upsell) subscriptions and let the
   // healthiest one govern access. An active/trialing sub always wins, so a stale or duplicate
@@ -61,6 +60,7 @@ async function syncSubscription(db: ReturnType<typeof svc>, subId: string) {
     current_period_end: iso(gov.current_period_end),
     cancel_at_period_end: gov.cancel_at_period_end,
   }).eq('id', userId);
+  return meta;
 }
 
 Deno.serve(async (req) => {
@@ -80,25 +80,28 @@ Deno.serve(async (req) => {
       case 'invoice.paid': {
         const inv = event.data.object as Stripe.Invoice;
         const subId = inv.subscription as string;
-        if (subId) await syncSubscription(db, subId);
+        // syncSubscription hands back the subscription's metadata, so classifying this invoice
+        // costs no extra Stripe round trip. It stays outside try/catch on purpose: if the access
+        // sync fails we must 500 and let Stripe retry, not record a payment against stale access.
+        const meta = subId ? await syncSubscription(db, subId) : {};
         const userId = await userForCustomer(db, inv.customer as string);
-        const kind = inv.billing_reason === 'subscription_create' ? 'initial' : 'renewal';
+        const { kind, upsellId, capiEvent } = classifyInvoice({
+          billingReason: inv.billing_reason, upsellId: meta.upsell_id, test: meta.test,
+        });
         await db.from('payments').insert({
           id: inv.id, user_id: userId, subscription_id: subId,
           amount: (inv.amount_paid ?? 0) / 100, currency: inv.currency,
           kind, status: 'succeeded', raw: inv as unknown as Record<string, unknown>,
         });
         const email = inv.customer_email || await emailForUser(db, userId);
-        const amt = ((inv.amount_paid ?? 0) / 100).toFixed(2);
-        const tag = (inv.amount_paid ?? 0) <= 100 ? ' _(test)_' : '';
-        await notify(`:moneybag: *${kind === 'initial' ? 'New subscription' : 'Renewal'}* — ${email} — $${amt} ${inv.currency.toUpperCase()}${tag}`);
-        // CAPI Purchase — only the acquisition invoice (subscription_create), not renewals.
-        if (kind === 'initial') {
-          let meta: Record<string, string> = {};
-          if (subId) {
-            try { meta = ((await stripe.subscriptions.retrieve(subId)).metadata || {}) as Record<string, string>; } catch (_) { /* best-effort; CAPI never breaks the webhook */ }
-          }
-          await sendPurchase({
+        await notifySlack(upsellId && kind.startsWith('upsell:')
+          ? fmtUpsellPaid(upsellId, email, inv.amount_paid ?? 0, inv.currency, meta.test === '1')
+          : fmtSubscriptionPaid(kind === 'initial' ? 'initial' : 'renewal', email, inv.amount_paid ?? 0, inv.currency, (inv.amount_paid ?? 0) <= 100));
+        // CAPI: acquisitions only (never renewals), never internal test checkouts, and a recurring
+        // upsell's first invoice reports UpsellPurchase — see classifyInvoice for the reasoning.
+        if (capiEvent) {
+          const send = capiEvent === 'UpsellPurchase' ? sendUpsellPurchase : sendPurchase;
+          await send({
             eventId: inv.id, email, value: (inv.amount_paid ?? 0) / 100, currency: inv.currency,
             fbc: meta.fbc, clientIp: meta.client_ip, clientUserAgent: meta.client_ua, eventSourceUrl: meta.event_source_url,
           });
@@ -108,7 +111,39 @@ Deno.serve(async (req) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
-        await syncSubscription(db, (event.data.object as Stripe.Subscription).id);
+        const sub = event.data.object as Stripe.Subscription;
+        await syncSubscription(db, sub.id); // primary work first; alerts only after it succeeded
+        if (event.type === 'customer.subscription.updated') {
+          // Actionable churn: alert the moment cancel_at_period_end FLIPS to true.
+          // previous_attributes is present on *.updated events — no DB read needed,
+          // and unrelated updates (renewal bumps, metadata) never re-alert.
+          const prev = event.data.previous_attributes as Partial<Stripe.Subscription> | undefined;
+          if (sub.cancel_at_period_end && prev?.cancel_at_period_end === false && !sub.metadata?.upsell_id) {
+            const email = await emailForUser(db, await userForCustomer(db, sub.customer as string));
+            await notifySlack(fmtCancelScheduled(email, sub.metadata?.plan_id, sub.current_period_end));
+          }
+        }
+        if (event.type === 'customer.subscription.deleted') {
+          const email = await emailForUser(db, await userForCustomer(db, sub.customer as string));
+          await notifySlack(fmtSubscriptionEnded(email, sub.metadata?.plan_id, sub.metadata?.upsell_id));
+        }
+        break;
+      }
+      case 'charge.refunded': {
+        // Fires on every refund (full and partial); alert-only, /stats reads
+        // refund totals live from Stripe.
+        const ch = event.data.object as Stripe.Charge;
+        const email = ch.billing_details?.email || ch.receipt_email ||
+          await emailForUser(db, await userForCustomer(db, ch.customer as string));
+        await notifySlack(fmtRefund(email, ch.amount_refunded ?? 0, ch.amount ?? 0, ch.currency));
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const inv = event.data.object as Stripe.Invoice;
+        if ((inv.attempt_count ?? 0) > 0) {
+          const email = inv.customer_email || await emailForUser(db, await userForCustomer(db, inv.customer as string));
+          await notifySlack(fmtPaymentFailed(email, inv.amount_due ?? 0, inv.currency, inv.attempt_count ?? 0));
+        }
         break;
       }
       case 'payment_intent.succeeded': {
@@ -126,12 +161,13 @@ Deno.serve(async (req) => {
             raw: { ...(pi as unknown as Record<string, unknown>), receipt_url },
           }, { onConflict: 'id', ignoreDuplicates: true });
           const email = await emailForUser(db, pi.metadata.user_id);
-          const amt = ((pi.amount_received ?? 0) / 100).toFixed(2);
-          const tag = pi.metadata.test === '1' ? ' _(test)_' : '';
-          await notify(`:heavy_plus_sign: *Upsell:* ${pi.metadata.upsell_id} — ${email} — $${amt} ${pi.currency.toUpperCase()}${tag}`);
-          // CAPI Purchase for the upsell — skip internal test charges.
+          await notifySlack(fmtUpsellPaid(pi.metadata.upsell_id, email, pi.amount_received ?? 0, pi.currency, pi.metadata.test === '1'));
+          // CAPI UpsellPurchase — an add-on bought by an existing customer, NOT an acquisition.
+          // Sending Purchase here made one buyer read as 2–4 purchases in Ads Manager (inflated
+          // conversions, understated CPA); the revenue still reaches Meta under its own event name.
+          // Skip internal test charges.
           if (pi.metadata.test !== '1') {
-            await sendPurchase({
+            await sendUpsellPurchase({
               eventId: pi.id, email, value: (pi.amount_received ?? 0) / 100, currency: pi.currency,
               fbc: pi.metadata.fbc, clientIp: pi.metadata.client_ip, clientUserAgent: pi.metadata.client_ua, eventSourceUrl: pi.metadata.event_source_url,
             });

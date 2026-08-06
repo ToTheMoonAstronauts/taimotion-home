@@ -17,9 +17,53 @@
   function load() {
     try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; }
   }
+  const EXPLICIT_V = window.QUIZ_VARIANT ? String(window.QUIZ_VARIANT).toLowerCase() : null;  // only quiz-b/quiz-c set this
+  const PAGE_VARIANT = EXPLICIT_V || "a";
+
+  // ---- measurement system ----
+  // Imperial is the default for US-shaped visitors; the funnel's audience is majority US.
+  // Regions where lb/ft is what people actually think in. GB is included deliberately: UK
+  // visitors read lb far more naturally than kg (stone is not offered — one unit per system).
+  const IMPERIAL_REGIONS = ["US", "GB", "LR", "MM"];
+  const IMPERIAL_TZ = ["America/New_York", "America/Chicago", "America/Denver",
+    "America/Los_Angeles", "America/Phoenix", "America/Anchorage", "Pacific/Honolulu"];
+  // Resolved ONCE per session and stored on S: a mid-funnel flip would reinterpret values the
+  // visitor already entered. ?units= wins so screenshots, Playwright and QA are reproducible —
+  // locale detection alone makes session replays impossible to reproduce deliberately.
+  function detectUnits() {
+    try {
+      const q = new URLSearchParams(location.search).get("units");
+      if (q === "imperial" || q === "metric") return q;
+    } catch (e) { /* malformed query string: fall through to locale */ }
+    const langs = navigator.languages && navigator.languages.length
+      ? navigator.languages : [navigator.language];
+    for (const l of langs) {
+      if (!l) continue;
+      try {
+        // "en-US" -> "US". Intl.Locale also resolves "en-Latn-US" and likelySubtags.
+        const r = (new Intl.Locale(l)).region;
+        if (r) return IMPERIAL_REGIONS.includes(r) ? "imperial" : "metric";
+      } catch (e) { /* malformed tag (e.g. "en_US") or no Intl.Locale: try the next candidate */ }
+    }
+    try {
+      if (IMPERIAL_TZ.includes(Intl.DateTimeFormat().resolvedOptions().timeZone)) return "imperial";
+    } catch (e) { /* no Intl at all: metric */ }
+    return "metric";
+  }
+  // A screen declares its two unit labels metric-first (units: ["kg","lb"]); which one is live
+  // is a session property, not a per-screen one, so every screen and all downstream copy agree.
+  function unitFor(scr) { return S.units === "imperial" ? scr.units[1] : scr.units[0]; }
+  function setUnits(sys) { S.units = sys; save(); }
+  // Display-only weight helpers for personalize()'s copy tokens. Canonical state stays kg;
+  // these convert at render time and never write back into S.
+  function wLabel() { return S.units === "imperial" ? "lb" : "kg"; }
+  function kgToDisp(kg) { return S.units === "imperial" ? Math.round(kg * 2.20462) : Math.round(kg); }
   function fresh() {
     return { id: uuid(), funnel: F.product, created_at: new Date().toISOString(),
+      ab_test_name: F.abTestName || null, ab_test_variant: PAGE_VARIANT,
+      ab_test_source: EXPLICIT_V ? "url" : null,   // "url" = explicit page (outside the PostHog experiment), "flag" = experiment-assigned
       age_band: null, answers: {}, index: 0, email: null, name: null,
+      units: detectUnits(),
       height_cm: null, weight_kg: null, goal_weight_kg: null, bmi: null,
       selected_plan: null, status: "in_progress" };
   }
@@ -47,17 +91,88 @@
     });
     return frag;
   }
-  function toCm(v, u) { return u === "ft" ? Math.round(v * 30.48) : v; }      // v in ft (decimal) -> cm
   function toKg(v, u) { return u === "lb" ? +(v / 2.20462).toFixed(1) : v; }
   function bmi() { if (!S.height_cm || !S.weight_kg) return null; const m = S.height_cm / 100; return +(S.weight_kg / (m * m)).toFixed(1); }
   function bmiCategory(b) { return b < 18.5 ? "underweight" : b < 25 ? "a healthy weight" : b < 30 ? "in the overweight range" : "in the obese range"; }
 
-  // Segmented, per-section loader (Digesti-style): 3 sections, each its own segment.
-  const SECS = ["My profile", "Activity", "Lifestyle"];
+  // Entry from the index/prelander always starts a brand-new quiz. This used to live in the
+  // boot block at the bottom, but it must run BEFORE the variant reconciliation below —
+  // otherwise a post-email user switching variants gets a session/screen-list mismatch.
+  const _entry = new URLSearchParams(location.search);
+  if (_entry.get("start") !== null || _entry.get("fresh") !== null || _entry.get("new") !== null) {
+    S = fresh(); save();
+  }
+  // Sessions saved before the unit system existed carry per-screen unit answers instead of
+  // S.units. Derive from those rather than re-detecting: re-detecting could flip a visitor
+  // who already entered kg into imperial and silently reinterpret their numbers.
+  if (!S.units) {
+    const legacy = S.answers.weight_unit || S.answers.goal_weight_unit || S.answers.height_unit;
+    S.units = legacy ? (legacy === "lb" || legacy === "ft" ? "imperial" : "metric") : detectUnits();
+    save();
+  }
+  // ---- quiz-length A/B/C: adopt/reconcile the variant, then filter the screen list.
+  // Two assignment paths share the same session fields: explicit URL pages (quiz-b/quiz-c set
+  // window.QUIZ_VARIANT -> source "url", deliberately OUTSIDE the PostHog experiment) and the
+  // PostHog `quiz-length` experiment flag on plain quiz.html (source "flag", control -> a).
+  if (!S.ab_test_variant) {           // pre-test sessions: adopt this page's variant
+    S.ab_test_name = F.abTestName || null; S.ab_test_variant = PAGE_VARIANT;
+    S.ab_test_source = EXPLICIT_V ? "url" : (S.ab_test_source || null); save();
+  } else if (EXPLICIT_V && S.ab_test_variant !== EXPLICIT_V && S.status === "in_progress" && !S.email) {
+    S = fresh(); save();              // switched onto an explicit variant page mid-quiz: restart under it
+  }                                   // (post-email sessions and plain /quiz keep the recorded variant)
+
   const SEL_DELAY = 450; // ms — let the tap register (show selected state) before auto-advancing
-  const _secOf = (() => { let cur = 0; return F.screens.map(s => { const i = SECS.indexOf(s.section); if (i >= 0) cur = i; return cur; }); })();
-  const _secLen = SECS.map((_, i) => _secOf.filter(x => x === i).length);
-  const _secStart = SECS.map((_, i) => _secOf.indexOf(i));
+  // Screens/sections derive from the variant and are recomputable: the experiment flag may
+  // upgrade a fresh session's variant while the visitor is still on the age gate (which is
+  // identical in every variant). After the age gate the variant is locked.
+  const MASTER_SCREENS = F.screens.slice();
+  let VARIANT, VDEF, SECS, _secOf, _secLen, _secStart, _segFullHtml = null;
+  function applyVariant() {
+    VARIANT = S.ab_test_variant || "a";
+    VDEF = (F.variants || {})[VARIANT] || null;
+    F.screens = MASTER_SCREENS.slice();
+    if (VDEF) {
+      const _cut = new Set(VDEF.cut || []);
+      F.screens = F.screens.filter(s => !_cut.has(s.id));
+      Object.entries(VDEF.copy || {}).forEach(([id, patch]) => {
+        const scr = F.screens.find(s => s.id === id); if (scr) Object.assign(scr, patch);
+      });
+    }
+    // Segmented, per-section loader (Digesti-style): sections, each its own segment.
+    SECS = (VDEF && VDEF.secs) || ["My profile", "Activity", "Lifestyle"];
+    // quiz.html hardcodes 3 .seg spans — restore the full markup, then trim to this variant.
+    const _pr = $("#progress");
+    if (_pr) {
+      if (_segFullHtml === null) _segFullHtml = _pr.innerHTML;
+      _pr.innerHTML = _segFullHtml;
+      while (_pr.children.length > SECS.length) _pr.removeChild(_pr.lastChild);
+    }
+    _secOf = (() => { let cur = 0; return F.screens.map(s => { const i = SECS.indexOf(s.section); if (i >= 0) cur = i; return cur; }); })();
+    _secLen = SECS.map((_, i) => _secOf.filter(x => x === i).length);
+    _secStart = SECS.map((_, i) => _secOf.indexOf(i));
+  }
+  applyVariant();
+
+  // PostHog experiment entry (flag `quiz-length`, values control/b/c): only plain quiz.html
+  // evaluates the flag — getFeatureFlag() records the $feature_flag_called exposure, so
+  // explicit-page visitors never enter the experiment's analysis. Flag off/undefined (draft
+  // experiment, blocked PostHog, slow flags) -> visitor simply stays on the full funnel.
+  if (!EXPLICIT_V && S.ab_test_source !== "url") {
+    try {
+      window.posthog.onFeatureFlags(function () {
+        try {
+          const fv = window.posthog.getFeatureFlag("quiz-length");
+          const mapped = fv === "control" ? "a" : fv;
+          if (!mapped || (mapped !== "a" && !(F.variants || {})[mapped])) return;
+          S.ab_test_source = "flag";
+          if (mapped !== S.ab_test_variant && !S.age_band && S.index === 0 && !S.email) {
+            S.ab_test_variant = mapped; applyVariant();
+          }
+          save();
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
   // Dev: ?debug=1 reveals the step-id chip (also: run `document.body.classList.toggle('debug')` in console).
   if (new URLSearchParams(location.search).has("debug")) { try { document.body.classList.add("debug"); } catch (e) {} }
   function setProgress() {
@@ -102,7 +217,7 @@
     setProgress();
     const scr = F.screens[S.index];
     if (!scr) { window.location.href = "checkout.html"; return; }
-    try { if (window.TM) { if (!window._qStarted) { window._qStarted = 1; TM.track("quiz_start", {}); } TM.track("quiz_step", { i: S.index, id: scr.id || scr.key || scr.q || null, type: scr.type || null, section: scr.section || null }); } } catch (e) {}
+    try { if (window.TM) { if (!window._qStarted) { window._qStarted = 1; TM.track("quiz_start", { variant: VARIANT, units: S.units }); } TM.track("quiz_step", { variant: VARIANT, i: S.index, id: scr.id || scr.key || scr.q || null, type: scr.type || null, section: scr.section || null }); } } catch (e) {}
     document.body.classList.toggle("scr-info", scr.type === "info");   // dark treatment for interstitials
     // Interim screens (info / loader) are full-bleed like Digesti — no progress bar, section label or back.
     const _interim = scr.type === "info" || scr.type === "loader";
@@ -111,7 +226,7 @@
       const sc = $("#section"); if (sc) sc.style.display = _noBar ? "none" : "block";  // section label default is CSS none, so set block explicitly
       const bk = $("#back"); if (bk) bk.style.display = _interim ? "none" : "";
       const qb = $(".qbrand"); if (qb) qb.style.display = (scr.type === "email" || scr.type === "name") ? "inline-flex" : "none"; }
-    ({ single: rSingle, multi: rMulti, input: rInput, info: rInfo,
+    ({ single: rSingle, multi: rMulti, input: rInput, slider: rSlider, info: rInfo,
        loader: rLoader, email: rEmail, name: rName, goals: rGoals }[scr.type] || rInfo)(scr, root);
     window.scrollTo(0, 0);
   }
@@ -126,12 +241,20 @@
     const band = S.age_band ? S.age_band.replace(/-/, "–") : "";
     const decade = band ? band.split(/[-–]/)[0].replace(/.$/, "0") + "s" : "your age";
     const gp = S.gender === "male" ? "men" : S.gender === "female" ? "women" : "people";
-    const now = S.weight_kg || 0, goal = S.goal_weight_kg || 0;
-    const lose = now && goal ? Math.max(0, Math.round(now - goal)) : 0;
-    const pct = now && lose ? Math.round((lose / now) * 100) : 0;
+    const nowKg = S.weight_kg || 0, goalKg = S.goal_weight_kg || 0;
+    const loseKg = nowKg && goalKg ? Math.max(0, nowKg - goalKg) : 0;
+    // projDate does its arithmetic in kg (~1kg / 2 weeks), so it gets loseKg — never the
+    // display value. Feeding it pounds would roughly double every projected date.
+    const now = nowKg ? kgToDisp(nowKg) : 0, goal = goalKg ? kgToDisp(goalKg) : 0;
+    // Derive the displayed delta from the displayed pair, never from loseKg: rounding each
+    // value independently lets "111 lb − 101 lb = 11 lb" reach the screen, and a visitor can
+    // spot that. Being up to 1 unit off the true kg delta is invisible; bad arithmetic is not.
+    const lose = now && goal ? Math.max(0, now - goal) : 0;
+    const pct = nowKg && loseKg ? Math.round((loseKg / nowKg) * 100) : 0;
     return t.replace(/\{decade\}/g, decade).replace(/\{genderPlural\}/g, gp).replace(/\{name\}/g, S.name || "")
       .replace(/\{goal\}/g, goal || "your goal").replace(/\{now\}/g, now || "")
-      .replace(/\{lose\}/g, lose).replace(/\{pct\}/g, pct).replace(/\{projdate\}/g, projDate(lose));
+      .replace(/\{lose\}/g, lose).replace(/\{pct\}/g, pct)
+      .replace(/\{wu\}/g, wLabel()).replace(/\{projdate\}/g, projDate(loseKg));
   }
   // A plausible target date: ~1 kg every ~2 weeks, min ~4 weeks out.
   function projDate(loseKg) {
@@ -147,10 +270,20 @@
   }
   // Dynamic projection chart (SVG): start weight -> goal weight, "Now" + target month, all from state.
   function projChartEl(cap) {
-    const now = Math.round(S.weight_kg || 92);
-    const goal = Math.round(S.goal_weight_kg || Math.round((S.weight_kg || 92) * 0.85));
+    // Canonical (kg) and displayed values are kept apart, exactly as personalize() does:
+    // projMonth's arithmetic is kg-based (~1kg / 2 weeks), so it must get loseKg. Handing it
+    // the converted value would roughly double the projected month, and still look plausible.
+    const nowKg = S.weight_kg || 92;
+    const goalKg = S.goal_weight_kg || Math.round(nowKg * 0.85);
+    const loseKg = Math.max(0, nowKg - goalKg);
+    const month = projMonth(loseKg);
+    const wu = wLabel();
+    // Convert from the unrounded canonical kg (not from a rounded kg), so a visitor who typed
+    // 180 lb reads 180 here and in the headline personalize() renders on the same screen.
+    const now = kgToDisp(nowKg), goal = kgToDisp(goalKg);
+    // Same rule as personalize() and the goal-weight slider: the displayed delta comes off the
+    // displayed pair, never from rounding loseKg separately, or "111 − 101 = 11" reaches the screen.
     const lose = Math.max(0, now - goal);
-    const month = projMonth(lose);
     const green = document.documentElement.getAttribute("data-theme") === "green";
     const c1 = green ? "#45b577" : "#bf7350";
     const ink = green ? "#233e20" : "#2a2319";
@@ -159,24 +292,24 @@
     const grid = green ? "#e6ece8" : "#efe7dd";
     const box = el("div", "projchart");
     box.innerHTML = `
-    <svg viewBox="18 0 306 200" width="100%" role="img" aria-label="Projected weight from ${now}kg to ${goal}kg by ${month}">
+    <svg viewBox="18 0 306 200" width="100%" role="img" aria-label="Projected weight from ${now}${wu} to ${goal}${wu} by ${month}">
       <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="${c1}" stop-opacity=".28"/><stop offset="1" stop-color="${c1}" stop-opacity="0"/></linearGradient></defs>
       ${[35,140,245,310].map(x=>`<line x1="${x}" y1="30" x2="${x}" y2="168" stroke="${grid}" stroke-width="1"/>`).join("")}
       <path class="pc-area" d="M35,52 C130,60 205,132 310,150 L310,168 L35,168 Z" fill="url(#pg)"/>
       <path class="pc-line" pathLength="1" d="M35,52 C130,60 205,132 310,150" fill="none" stroke="${c1}" stroke-width="3.5" stroke-linecap="round"/>
-      <text class="pc-now" x="35" y="40" font-size="18" font-weight="800" fill="${ink}">${now}kg</text>
+      <text class="pc-now" x="35" y="40" font-size="18" font-weight="800" fill="${ink}">${now}${wu}</text>
       <g class="pc-walk" transform="translate(96,64)">
         <circle r="12" fill="${c1}"/>
         <circle cx="0" cy="-4.4" r="2.7" fill="#fff"/>
         <path d="M0,-1.2 c-3.3,0 -3.7,4 -3.7,7.6 l7.4,0 c0,-3.6 -0.4,-7.6 -3.7,-7.6 z" fill="#fff"/>
       </g>
-      <text class="pc-decrease" x="182" y="49" font-size="12.5" text-anchor="middle" fill="${muted}">Decrease risk (${lose}kg)</text>
+      <text class="pc-decrease" x="182" y="49" font-size="12.5" text-anchor="middle" fill="${muted}">Decrease risk (${lose}${wu})</text>
       <g class="pc-goal"><line x1="278" y1="124" x2="278" y2="140" stroke="${c1}" stroke-width="1.5"/>
       <circle cx="278" cy="140" r="5.5" fill="${c1}"/>
       <rect x="236" y="80" width="84" height="44" rx="9" fill="${c1}"/>
       <text x="278" y="98" font-size="12" font-weight="700" text-anchor="middle" fill="#fff">Goal</text>
-      <text x="278" y="117" font-size="18" font-weight="800" text-anchor="middle" fill="#fff">${goal}kg</text></g>
+      <text x="278" y="117" font-size="18" font-weight="800" text-anchor="middle" fill="#fff">${goal}${wu}</text></g>
       <text class="pc-nowlbl" x="35" y="192" font-size="14" font-weight="700" fill="${inkL}">Now</text>
       <text class="pc-month" x="310" y="192" font-size="14" font-weight="700" text-anchor="end" fill="${inkL}">${month}</text>
     </svg>
@@ -205,7 +338,9 @@
     } else if (o.emoji) {
       row.appendChild(el("span", "emoji", o.emoji));
     }
-    row.appendChild(el("span", "lab", o.label));
+    // The ld layout is a 3-4 across grid (~100px/column), so ordinal scales supply a short
+    // tick label via o.short; the full wording stays in o.label for every other layout.
+    row.appendChild(el("span", "lab", (scr.layout === "ld" && o.short) || o.label));
     if (scr.type === "multi") row.appendChild(el("span", "check", selected ? "✓" : ""));
     row.onclick = () => onClick(row);
     return row;
@@ -224,7 +359,10 @@
       root.appendChild(card);
     }
     const box = el("div", wrapCls);
-    if (scr.layout === "ld") box.style.gridTemplateColumns = `repeat(${scr.options.length},1fr)`;
+    if (scr.layout === "ld") {
+      box.style.gridTemplateColumns = `repeat(${scr.options.length},minmax(0,1fr))`;
+      if (scr.options.length >= 4) box.classList.add("ld-4");
+    }
     scr.options.forEach(o => box.appendChild(optRow(scr, o, false, (row) => {
       if (box.classList.contains("locked")) return;
       box.classList.add("locked"); row.classList.add("sel");
@@ -263,21 +401,35 @@
     ctaBar("Continue", () => go(1), cur.size === 0);
   }
 
+  // Free-text numeric entry. Every body-metric screen is type:"slider" now, so the only route in
+  // is rSlider's goal-weight deep-link fallback (below) — units are always kg/lb here, never cm/ft.
   function rInput(scr, root) {
     head(scr, root);
-    let unit = S.answers[scr.id + "_unit"] || scr.units[0];
+    let unit = unitFor(scr);
     const wrap = el("div", "inputwrap");
     const tog = el("div", "unit-toggle");
-    scr.units.forEach(u => {
+    scr.units.forEach((u, i) => {
       const b = el("button", u === unit ? "on" : "", u);
-      b.onclick = () => { unit = u; S.answers[scr.id + "_unit"] = u; save(); rInput(scr, (root.innerHTML = "", root)); };
+      // Convert the value in place instead of clearing it: the canonical answer is already in
+      // metric, so re-rendering from S is both simpler and drift-free.
+      b.onclick = () => {
+        if (u === unit) return;
+        setUnits(i === 1 ? "imperial" : "metric");
+        rInput(scr, (root.innerHTML = "", root));
+      };
       tog.appendChild(b);
     });
     wrap.appendChild(tog);
     const field = el("div", "field");
     const inp = el("input"); inp.type = "number"; inp.inputMode = "decimal";
-    inp.placeholder = ({ height: "Height", weight: "Current weight", goal_weight: "Goal weight" }[scr.field] || "Enter a number");
-    inp.value = S.answers[scr.id] || "";
+    inp.placeholder = ({ weight: "Current weight", goal_weight: "Goal weight" }[scr.field] || "Enter a number");
+    // Derive from the canonical metric value so a unit switch converts rather than clears.
+    // S.answers[scr.id] is only a fallback for a value typed but not yet committed.
+    inp.value = (() => {
+      const kg = scr.field === "weight" ? S.weight_kg : scr.field === "goal_weight" ? S.goal_weight_kg : null;
+      if (kg != null) return String(unit === "lb" ? Math.round(kg * 2.20462) : Math.round(kg * 10) / 10);
+      return S.answers[scr.id] || "";
+    })();
     field.appendChild(inp); field.appendChild(el("span", "u", unit));
     wrap.appendChild(field);
     const err = el("div", "input-err"); err.style.display = "none"; wrap.appendChild(err);
@@ -287,8 +439,7 @@
     function problem() {
       const v = parseFloat(inp.value);
       if (!(v > 0)) return "";
-      const cm = toCm(v, unit), kg = toKg(v, unit);
-      if (scr.field === "height" && (cm < 100 || cm > 220)) return "Check Your height value";
+      const kg = toKg(v, unit);
       if (scr.field === "weight" && kg >= 160) return "Check Your weight value";
       if (scr.field === "goal_weight") {
         if (kg >= 160) return "Check Your weight value";
@@ -302,7 +453,6 @@
       const v = parseFloat(inp.value);
       if (v > 0) {
         S.answers[scr.id] = inp.value;
-        if (scr.field === "height") S.height_cm = toCm(v, unit);
         if (scr.field === "weight") S.weight_kg = toKg(v, unit);
         if (scr.field === "goal_weight") S.goal_weight_kg = toKg(v, unit);
         S.bmi = bmi(); save();
@@ -324,6 +474,136 @@
     inp.onkeydown = (e) => { if (e.key === "Enter") { commit(); showErr(); if (valid()) go(1); } };
     keepVisible(inp, btn);
     setTimeout(() => inp.focus(), 50);
+  }
+
+  // ---- bounded sliders ----
+  // One renderer for every numeric screen (height, weight, goal weight). The track steps in whole
+  // display units and the bounds encode the validation, so no position is invalid and there is no
+  // error state to recover from. Canonical state stays metric (height_cm / weight_kg /
+  // goal_weight_kg) and the thumb is always re-derived from it, so a unit switch converts rather
+  // than drifts. Imperial height steps in whole inches but READS as ft+in — one thumb, so the
+  // ft/in field pair (and its focus-juggling) isn't needed here.
+  //
+  // prefill: all three body sliders commit their defaults so Continue is enabled on load.
+  // goal_weight is derived from a real answer (~10% of the weight they just gave) and the
+  // projection screens need {goal}/{lose}/{pct} to resolve. height/weight default to typical
+  // midpoints the user can accept or adjust (165 cm / 75 kg, or imperial equivalents).
+  function sliderSpec(scr) {
+    const imp = S.units === "imperial";
+    const notes = (v) => null;
+    if (scr.field === "height") {
+      // S.answers.height_ft/height_in are write-only: the slider always re-derives its position from
+      // S.height_cm, so nothing reads them back. They are kept as the imperial-session marker in
+      // stored data — the only way to tell, after the fact, that a session answered in ft/in (which
+      // is what made the measurement_system backfill possible, and what a BI query would
+      // filter on). The metric branch deletes them so a mid-quiz switch to cm leaves no stale flag.
+      return imp
+        ? { unit: "in", min: 55, max: 79, def: 65, prefill: true,
+            canon: () => S.height_cm, from: (cm) => Math.round(cm / 2.54),
+            set: (v) => { S.height_cm = Math.round(v * 2.54); S.answers.height_ft = String(Math.floor(v / 12)); S.answers.height_in = String(v % 12); },
+            big: (v) => `<span class="sl-num">${Math.floor(v / 12)}</span><span class="sl-u">ft</span><span class="sl-num">${v % 12}</span><span class="sl-u">in</span>`,
+            end: (v) => `${Math.floor(v / 12)}'${v % 12}"`, say: (v) => `${Math.floor(v / 12)} feet ${v % 12} inches`, extra: notes }
+        : { unit: "cm", min: 140, max: 200, def: 165, prefill: true,
+            canon: () => S.height_cm, from: (cm) => Math.round(cm),
+            set: (v) => { S.height_cm = v; delete S.answers.height_ft; delete S.answers.height_in; },
+            big: (v) => `<span class="sl-num">${v}</span><span class="sl-u">cm</span>`,
+            end: (v) => v + " cm", say: (v) => v + " cm", extra: notes };
+    }
+    const wExtra = (v) => {
+      if (!scr.computeBMI || !S.bmi) return null;
+      return `Your BMI is <b>${S.bmi}</b> — ${bmiCategory(S.bmi)}. We'll use this to set a healthy, realistic pace.`;
+    };
+    if (scr.field === "weight") {
+      const base = { prefill: true, canon: () => S.weight_kg, extra: wExtra };
+      return imp
+        ? Object.assign(base, { unit: "lb", min: 88, max: 350, def: 165,
+            from: (kg) => Math.round(kg * 2.20462), set: (v) => { S.weight_kg = toKg(v, "lb"); S.bmi = bmi(); } })
+        : Object.assign(base, { unit: "kg", min: 40, max: 159, def: 75,
+            from: (kg) => Math.round(kg), set: (v) => { S.weight_kg = v; S.bmi = bmi(); } });
+    }
+    // goal weight: bounds derive from the weight just given, so "below your current weight" and
+    // "check your weight value" become unreachable rather than validated.
+    const now = S.weight_kg;
+    const hiKg = Math.max(35, Math.round(now - 1));
+    const m = S.height_cm ? S.height_cm / 100 : 0;
+    let loKg = m ? Math.round(18.5 * m * m) : Math.round(now * 0.65);   // healthy-BMI floor when height is known
+    loKg = Math.max(40, Math.min(loKg, hiKg - 5));
+    if (loKg >= hiKg) loKg = Math.max(1, hiKg - 5);                    // very light starting weight
+    const conv = imp ? (kg) => Math.round(kg * 2.20462) : (kg) => Math.round(kg);
+    return {
+      unit: imp ? "lb" : "kg", min: conv(loKg), max: conv(hiKg), def: conv(now * 0.9), prefill: true,
+      canon: () => S.goal_weight_kg, from: conv,
+      set: (v) => { S.goal_weight_kg = toKg(v, imp ? "lb" : "kg"); },
+      // Same rule as personalize(): derive the displayed delta from the displayed pair, never by
+      // rounding loseKg separately, or this screen can disagree with the projection screens by a
+      // unit. pct still comes off the true kg delta.
+      extra: (v) => {
+        const lose = Math.max(0, conv(now) - v);
+        const loseKg = Math.max(0, now - toKg(v, imp ? "lb" : "kg"));
+        return `That's <b>${lose} ${imp ? "lb" : "kg"}</b> to lose — about <b>${Math.round((loseKg / now) * 100)}%</b> of your body weight.`;
+      },
+    };
+  }
+
+  function rSlider(scr, root) {
+    if (scr.field === "goal_weight" && !S.weight_kg) return rInput(scr, root);   // deep link / ?step= jump
+    head(scr, root);
+    const sp = sliderSpec(scr);
+    const hasStored = sp.canon() != null;
+    let touched = sp.prefill || hasStored;
+    let val = Math.min(sp.max, Math.max(sp.min, hasStored ? sp.from(sp.canon()) : sp.def));
+    const big = sp.big || ((v) => `<span class="sl-num">${v}</span><span class="sl-u">${sp.unit}</span>`);
+    const end = sp.end || ((v) => v + " " + sp.unit);
+    const say = sp.say || ((v) => v + " " + sp.unit);
+
+    const wrap = el("div", "inputwrap");
+    const tog = el("div", "unit-toggle");
+    scr.units.forEach((u, i) => {
+      const b = el("button", (i === 1) === (S.units === "imperial") ? "on" : "", u);
+      b.onclick = () => {
+        if ((i === 1) === (S.units === "imperial")) return;
+        setUnits(i === 1 ? "imperial" : "metric");
+        root.innerHTML = ""; rSlider(scr, root);
+      };
+      tog.appendChild(b);
+    });
+    wrap.appendChild(tog);
+
+    const read = el("div", "sl-read", big(val));
+    wrap.appendChild(read);
+    const rail = el("div", "sl-rail");
+    const inp = el("input"); inp.type = "range";
+    inp.min = sp.min; inp.max = sp.max; inp.step = 1; inp.value = val;
+    inp.setAttribute("aria-label", personalize(scr.q || "Value"));
+    rail.appendChild(inp); wrap.appendChild(rail);
+    const ends = el("div", "sl-ends");
+    ends.appendChild(el("span", "", end(sp.min)));
+    ends.appendChild(el("span", "", end(sp.max)));
+    wrap.appendChild(ends);
+    const fb = el("div"); wrap.appendChild(fb);
+    root.appendChild(wrap);
+
+    function paint() {
+      read.innerHTML = big(val);
+      inp.style.setProperty("--pct", (sp.max > sp.min ? ((val - sp.min) / (sp.max - sp.min)) * 100 : 100).toFixed(2) + "%");
+      inp.setAttribute("aria-valuetext", say(val));
+      fb.innerHTML = "";
+      if (!touched) { fb.appendChild(el("div", "sl-hint", "Slide to set your answer")); return; }
+      const x = sp.extra(val);
+      if (x) fb.appendChild(el("div", "feedback", x));
+      if (scr.note) {
+        const card = el("div", "info-block");
+        if (scr.noteTitle) card.appendChild(el("div", "ib-title", scr.noteTitle));
+        card.appendChild(el("div", "ib-body", scr.note));
+        fb.appendChild(card);
+      }
+    }
+    function commit() { S.answers[scr.id] = String(val); sp.set(val); save(); }
+
+    if (touched) commit();
+    paint();
+    const btn = ctaBar("Continue", () => go(1), !touched);
+    inp.oninput = () => { val = parseFloat(inp.value); touched = true; commit(); paint(); btn.disabled = false; };
   }
 
   function rInfo(scr, root) {
@@ -455,7 +735,10 @@
     return box;
   }
   function chartEl() {
-    const now = S.weight_kg || 78, goal = S.goal_weight_kg || Math.round((S.weight_kg || 78) * 0.85);
+    // Labels only — no kg arithmetic downstream here, but the canonical/display split is kept
+    // so the values stay converted from unrounded kg and agree with the headline above the chart.
+    const nowKg = S.weight_kg || 78, goalKg = S.goal_weight_kg || Math.round(nowKg * 0.85);
+    const wu = wLabel(), now = kgToDisp(nowKg), goal = kgToDisp(goalKg);
     const green = document.documentElement.getAttribute("data-theme") === "green";
     const c1 = green ? "#45b577" : "#bf7350", c2 = green ? "#2f9d61" : "#c98a5f";  // line follows palette
     const box = el("div", "chartbox");
@@ -466,7 +749,7 @@
       <path d="M10,30 C110,40 180,95 310,110" fill="none" stroke="${c1}" stroke-width="3"/>
       <circle cx="10" cy="30" r="5" fill="${c1}"/><circle cx="310" cy="110" r="5" fill="${c2}"/>
       </svg>
-      <div class="chartlabels"><span>Now · ${now}kg</span><span>Goal · ${goal}kg</span></div>`;
+      <div class="chartlabels"><span>Now · ${now}${wu}</span><span>Goal · ${goal}${wu}</span></div>`;
     return box;
   }
 
@@ -570,7 +853,15 @@
       S.email = v; S.status = "email_captured";
       S.locale = (location.pathname.indexOf("/es/") === 0) ? "es" : "en";   // funnel language -> lead locale (ES emails)
       window.CTC.saveSession();
-      if (window.API) API.submitQuiz(S);
+      // Ship the Meta ad-click id (captured site-wide by track.js) alongside the
+      // session so submit-quiz can send a CAPI Lead with fbc; S itself stays clean.
+      let fb = {}; try { fb = JSON.parse(localStorage.getItem("ctc_fbc")) || {}; } catch (e) {}
+      if (window.API) API.submitQuiz(Object.assign({ fbclid: fb.fbclid, fbclid_t: fb.fbclid_t }, S));
+      // Browser twin of the CAPI Lead — same event_id so Meta dedups the pair.
+      try { if (window.TM) TM.track("quiz_email_captured", { event_id: "lead_" + S.id }); } catch (e) {}
+      // PostHog: identify by lowercased email — the members' app identifies the same
+      // way at login, so pre-purchase and in-app activity merge into one person.
+      try { if (window.posthog && window.posthog.identify) posthog.identify(v.toLowerCase(), { email: v }); } catch (e) {}
       go(1);
     }, !okEmail(S.email));
     inp.oninput = () => { btn.disabled = !okEmail(inp.value); inp.style.borderColor = ""; };
@@ -591,9 +882,13 @@
     const pr = $("#progress"); if (pr) pr.style.display = "none";     // full-bleed like Digesti — no loader/topbar
     const sc = $("#section"); if (sc) sc.style.display = "none";
     const bk = $("#back"); if (bk) bk.style.display = "none";
-    root.appendChild(el("h1", "q", personalize(`${S.name ? S.name + ", reach" : "Reach"} your goal of <span class='hl'>{goal}kg</span> by {projdate}`)));
+    // Variant C has no weight data — {goal}{wu}/{projdate} and the weight chart would fabricate numbers.
+    const hasWeight = !!(S.weight_kg && S.goal_weight_kg);
+    root.appendChild(el("h1", "q", personalize(hasWeight
+      ? `${S.name ? S.name + ", reach" : "Reach"} your goal of <span class='hl'>{goal}{wu}</span> by {projdate}`
+      : `${S.name ? S.name + ", your" : "Your"} personalized plan is ready`)));
     root.appendChild(el("p", "sub", "And build a body you feel good living in"));
-    root.appendChild(chartEl());
+    if (hasWeight) root.appendChild(chartEl());
     const block = el("div", "goal-block");
     [["\uD83C\uDFCB\uFE0F", "Slim down and tone up with gentle but effective workouts"],
      ["\uD83E\uDE91", "Gentle seated workouts — no equipment needed"],
@@ -705,7 +1000,7 @@
       if (scr.femaleOnly && S.gender === "male") return;       // skip female-only screens for men
       if (scr.type === "single") S.answers[scr.id] = rnd(scr.options).value;
       else if (scr.type === "multi") { const opts = scr.options.filter(o => !(o.femaleOnly && S.gender === "male")); const n = 1 + Math.floor(Math.random() * Math.min(2, opts.length)); S.answers[scr.id] = [...opts].sort(() => Math.random() - 0.5).slice(0, n).map(o => o.value); }
-      else if (scr.type === "input") S.answers[scr.id] = String(scr.field === "height" ? S.height_cm : scr.field === "weight" ? S.weight_kg : S.goal_weight_kg);
+      else if (scr.type === "input" || scr.type === "slider") S.answers[scr.id] = String(scr.field === "height" ? S.height_cm : scr.field === "weight" ? S.weight_kg : S.goal_weight_kg);
     });
     // Target: ?step=N (matches the header step tag, N = index+2). Default = email capture step.
     const stepParam = qp.get("step") || qp.get("goto");
@@ -727,10 +1022,7 @@
     go(-1);
   };
   const _qp = new URLSearchParams(location.search);
-  // Entry from the index/prelander always starts a brand-new quiz.
-  if (_qp.get("start") !== null || _qp.get("fresh") !== null || _qp.get("new") !== null) {
-    if (window.CTC) { window.CTC.reset(); S = window.CTC.get(); }
-  }
+  // (?start/?fresh/?new reset moved above the variant reconciliation near the top of the file.)
   if (_qp.get("autotest") !== null || _qp.get("test") !== null || _qp.get("funnel") === "test"
       || _qp.get("step") !== null || _qp.get("goto") !== null) autotestFill();
   else { S.gender = "female"; save(); if (!S.age_band) ageGate(); else render(); }  // female-only: gender step removed

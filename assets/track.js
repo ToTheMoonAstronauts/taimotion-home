@@ -20,7 +20,10 @@
     } catch (e) { s = {}; }
     if (s.fbclid) return;                       // keep the first click only
     s.fbclid = fbclid;
-    s.fbclid_t = Math.floor(Date.now() / 1000); // click time, seconds
+    // Click time in SECONDS. Meta's _fbc creationTime is milliseconds — that conversion lives in
+    // buildFbc (supabase/functions/_shared/meta-capi.ts), at the Meta boundary. Don't switch this
+    // to ms without reading that function: it accepts either, but seconds is the internal unit.
+    s.fbclid_t = Math.floor(Date.now() / 1000);
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch (e) { /* never block the page on tracking */ }
 })();
