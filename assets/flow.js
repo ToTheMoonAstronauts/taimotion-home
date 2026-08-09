@@ -15,7 +15,29 @@ window.FLOW = (function () {
   }
   function removeItem(id) { const s = ensure(get()); s.order = s.order.filter(o => o.id !== id); save(s); return s; }
   function total() { return ensure(get()).order.reduce((a, o) => a + (o.amount || 0), 0); }
-  function money(n) { return "$" + n.toFixed(2); }
+
+  // Currency helpers — prefer TM_CURRENCY when loaded; fall back to USD "$x.xx".
+  function currency() {
+    const s = get();
+    if (window.TM_CURRENCY) return TM_CURRENCY.ensure(s) || TM_CURRENCY.DEFAULT;
+    return s.currency || "usd";
+  }
+  /** Format Stripe minor units (cents / whole pesos). */
+  function moneyMinor(minor, cur) {
+    if (window.TM_CURRENCY) return TM_CURRENCY.format(minor, cur || currency());
+    const n = (Number(minor) || 0) / 100;
+    return "$" + n.toFixed(2);
+  }
+  /** @deprecated Prefer moneyMinor. Accepts major units for legacy call sites. */
+  function money(n) {
+    if (window.TM_CURRENCY) {
+      const c = currency();
+      const d = TM_CURRENCY.decimals(c);
+      const minor = d === 0 ? Math.round(n) : Math.round(Number(n) * Math.pow(10, d));
+      return TM_CURRENCY.format(minor, c);
+    }
+    return "$" + (Number(n) || 0).toFixed(2);
+  }
 
   // 3-step header: active = 'setup' | 'offer' | 'plan'
   function stepHeader(active) {
@@ -29,5 +51,5 @@ window.FLOW = (function () {
     }).join("") + `</div>`;
   }
 
-  return { get, save, addItem, removeItem, total, money, stepHeader };
+  return { get, save, addItem, removeItem, total, money, moneyMinor, currency, stepHeader };
 })();

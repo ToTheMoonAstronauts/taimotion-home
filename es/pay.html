@@ -40,37 +40,43 @@
 </main>
 <script src="/assets/api.js?v=5"></script>
 <script src="/assets/stripe.js?v=2"></script>
-<script src="/assets/flow.js?v=2"></script>
+<script src="/assets/currency.js?v=1"></script>
+<script src="/assets/flow.js?v=3"></script>
 <script>
-    const PLANS = { "1w":{name:"1-week plan",intro:5.19,renew:21.99,weeks:1},
-      "4w":{name:"4-week plan",intro:9.99,renew:49.95,weeks:4},
-      "12w":{name:"12-week plan",intro:19.99,renew:84.95,weeks:12} };
     const s = FLOW.get();
+    const currency = (window.TM_CURRENCY && TM_CURRENCY.ensure(s)) || s.currency || "usd";
+    FLOW.save(s);
     const planId = s.selected_plan || "4w";
-    const plan = PLANS[planId] || PLANS["4w"];
+    const plan = window.TM_CURRENCY
+      ? TM_CURRENCY.plan(planId, currency)
+      : { id: planId, name: "Plan", intro: 999, regular: 4995, weeks: 4 };
+    const planNames = { "1w": "1-week plan", "4w": "4-week plan", "12w": "12-week plan" };
+    plan.name = planNames[planId] || plan.name || "Plan";
     const payBtn = document.getElementById("pay");
     const msg = document.getElementById("payMsg");
     document.getElementById("stephdr").innerHTML = FLOW.stepHeader("setup");
     document.getElementById("planName").textContent = plan.name + " (introductory)";
-    document.getElementById("planPrice").textContent = FLOW.money(plan.intro);
-    document.getElementById("total").textContent = FLOW.money(plan.intro);
+    document.getElementById("planPrice").textContent = FLOW.moneyMinor(plan.intro, currency);
+    document.getElementById("total").textContent = FLOW.moneyMinor(plan.intro, currency);
     document.getElementById("emailShow").textContent = s.email || "(missing — please restart)";
     // Renewal fine print intentionally hidden on this step (terms already shown on the checkout step).
 
     const payLoader = document.getElementById("payLoader");
     let stripe, elements;
-    // Optional promo via URL param, e.g. /pay?promo=TMTEST50 — no visible field.
-    const promoCode = new URLSearchParams(location.search).get("promo") || localStorage.getItem("ctc_promo") || "";
+    // Optional promo via URL param, e.g. /pay?promo=TMTEST50 — no visible field. USD-only.
+    const promoCode = (currency === "usd")
+      ? (new URLSearchParams(location.search).get("promo") || localStorage.getItem("ctc_promo") || "")
+      : "";
     async function initSub(code) {
       payBtn.disabled = true; msg.textContent = "";
       document.getElementById("payment-element").innerHTML = "";
       payLoader.style.display = "flex";               // show spinner while the sub is created + card form mounts
-      window._payT0 = Date.now(); try { if (window.TM) TM.track("pay_view", { plan: planId }); } catch (e) {}
+      window._payT0 = Date.now(); try { if (window.TM) TM.track("pay_view", { plan: planId, currency }); } catch (e) {}
       if (!s.email || !s.id) { payLoader.style.display = "none"; msg.textContent = "Missing your details — please restart the quiz."; return; }
       try {
         await API.submitQuiz(s);                       // ensure the quiz row carries the email server-side
         let fb = {}; try { fb = JSON.parse(localStorage.getItem("ctc_fbc")) || {}; } catch (e) {}   // Meta ad-click id (captured site-wide by track.js)
-        const r = await API.createSubscription({ plan_id: planId, quiz_session_id: s.id, promo_code: code || undefined, fbclid: fb.fbclid, fbclid_t: fb.fbclid_t });
+        const r = await API.createSubscription({ plan_id: planId, quiz_session_id: s.id, currency, promo_code: code || undefined, fbclid: fb.fbclid, fbclid_t: fb.fbclid_t });
         if (r && r.error === "already subscribed") {
           msg.textContent = "You already have an active plan. Redirecting to the app…";
           setTimeout(() => location.href = "https://app.taimotion.com/", 1500); return;   // keep loader (navigating)
@@ -78,19 +84,21 @@
         if (r && r.error === "invalid promo code") { return initSub(""); }   // bad ?promo -> normal pricing
         if (r && r.activated) {                       // first invoice needed no card charge -> sub already active
           s.subscriptionId = r.subscriptionId; s.checkoutToken = r.checkoutToken;
-          s.paid = true; s.status = "paid";
-          s.order = [{ id:"base_plan", label: plan.name, amount: plan.intro, recurring:true }];
+          s.paid = true; s.status = "paid"; s.currency = r.currency || currency;
+          s.order = [{ id:"base_plan", label: plan.name, amount: TM_CURRENCY ? TM_CURRENCY.toMajor(plan.intro, currency) : plan.intro / 100, recurring:true }];
           FLOW.save(s);
-          try { if (window.TM) TM.track("pay_succeeded", { plan: planId, mode: "activated_no_charge" }); } catch (e) {}
+          try { if (window.TM) TM.track("pay_succeeded", { plan: planId, mode: "activated_no_charge", currency }); } catch (e) {}
           location.href = "upsell1.html"; return;     // keep loader (navigating); webhook provisions access
         }
         if (!r || !r.clientSecret) { payLoader.style.display = "none"; try { if (window.TM) TM.track("pay_form_error", { reason: "no_client_secret" }); } catch (e) {} msg.textContent = "Could not start checkout. Please refresh and retry."; return; }
-        s.subscriptionId = r.subscriptionId; s.checkoutToken = r.checkoutToken; FLOW.save(s);
-        if (typeof r.amount === "number") document.getElementById("total").textContent = FLOW.money(r.amount / 100);
+        s.subscriptionId = r.subscriptionId; s.checkoutToken = r.checkoutToken;
+        if (r.currency) s.currency = r.currency;
+        FLOW.save(s);
+        if (typeof r.amount === "number") document.getElementById("total").textContent = FLOW.moneyMinor(r.amount, r.currency || currency);
         stripe = window.stripeClient();
         elements = stripe.elements({ clientSecret: r.clientSecret, appearance: { theme: "flat" } });
         const paymentEl = elements.create("payment");
-        paymentEl.on("ready", () => { payLoader.style.display = "none"; payBtn.disabled = false; try { if (window.TM) TM.track("pay_form_loaded", { ms: Date.now() - (window._payT0 || Date.now()) }); } catch (e) {} });  // hide spinner only when the card fields are actually rendered
+        paymentEl.on("ready", () => { payLoader.style.display = "none"; payBtn.disabled = false; try { if (window.TM) TM.track("pay_form_loaded", { ms: Date.now() - (window._payT0 || Date.now()), currency }); } catch (e) {} });  // hide spinner only when the card fields are actually rendered
         paymentEl.mount("#payment-element");
       } catch (e) { payLoader.style.display = "none"; try { if (window.TM) TM.track("pay_form_error", { reason: "exception" }); } catch (er) {} msg.textContent = "Could not start checkout. Please refresh and retry."; }
     }
@@ -99,12 +107,12 @@
     payBtn.onclick = async () => {
       if (!stripe || !elements) return;
       payBtn.disabled = true; msg.textContent = "";
-      try { if (window.TM) TM.track("pay_submitted", { plan: planId }); } catch (e) {}
+      try { if (window.TM) TM.track("pay_submitted", { plan: planId, currency }); } catch (e) {}
       const { error } = await stripe.confirmPayment({ elements, redirect: "if_required", confirmParams: { return_url: location.origin + "/thankyou.html" } });
       if (error) { try { if (window.TM) TM.track("pay_failed", { message: (error.message || "").slice(0, 120), code: error.code || null, decline: error.decline_code || null }); } catch (e) {} msg.textContent = error.message || "Payment failed. Please check your card and retry."; payBtn.disabled = false; return; }
-      try { if (window.TM) TM.track("pay_succeeded", { plan: planId }); } catch (e) {}
-      const s2 = FLOW.get(); s2.paid = true; s2.status = "paid";
-      s2.order = [{ id:"base_plan", label: plan.name, amount: plan.intro, recurring:true }];
+      try { if (window.TM) TM.track("pay_succeeded", { plan: planId, currency }); } catch (e) {}
+      const s2 = FLOW.get(); s2.paid = true; s2.status = "paid"; s2.currency = currency;
+      s2.order = [{ id:"base_plan", label: plan.name, amount: TM_CURRENCY ? TM_CURRENCY.toMajor(plan.intro, currency) : plan.intro / 100, recurring:true }];
       FLOW.save(s2);
       location.href = "upsell1.html";           // webhook provisions access during the upsell steps
     };

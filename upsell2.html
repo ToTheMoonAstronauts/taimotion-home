@@ -28,15 +28,25 @@
 </main>
 <script src="assets/api.js?v=5"></script>
 <script src="assets/stripe.js?v=2"></script>
-<script src="assets/flow.js?v=2"></script>
+<script src="assets/currency.js?v=1"></script>
+<script src="assets/flow.js?v=3"></script>
 <script src="assets/upsell.js?v=2"></script>
 <script>
+    const s = FLOW.get();
+    const cur = (window.TM_CURRENCY && TM_CURRENCY.ensure(s)) || s.currency || "usd";
+    FLOW.save(s);
+    const C = window.TM_CURRENCY;
+    const fmt = (m) => C ? C.format(m, cur) : ("$" + (m / 100).toFixed(2));
+    const major = (m) => C ? C.toMajor(m, cur) : m / 100;
+    const guideMinor = C ? C.upsellMinor("guide_sleep", cur) : 1899;
+    const bundleMinor = C ? C.upsellMinor("all_guides", cur) : 3899;
+    const bundleWas = C ? C.upsellWasMinor("all_guides", cur) : 5697;
     const GUIDES = [
-      { id:"sleep", icon:"🛏️", gt:"Better Sleep", gd:"A Chair Tai Chi wind-down for restful nights", price:18.99 },
-      { id:"eating", icon:"🍎", gt:"Eating Without Guilt", gd:"A calm, kind relationship with food", price:18.99 },
-      { id:"aging", icon:"🌿", gt:"Aging Gracefully", gd:"7 pillars for a strong, calm, joyful later life", price:18.99 },
+      { id:"sleep", icon:"🛏️", gt:"Better Sleep", gd:"A Chair Tai Chi wind-down for restful nights", priceMinor: guideMinor },
+      { id:"eating", icon:"🍎", gt:"Eating Without Guilt", gd:"A calm, kind relationship with food", priceMinor: guideMinor },
+      { id:"aging", icon:"🌿", gt:"Aging Gracefully", gd:"7 pillars for a strong, calm, joyful later life", priceMinor: guideMinor },
     ];
-    const BUNDLE = { id:"all_guides", icon:"🧩", gt:"All 3 guides", gd:"Better Sleep, Eating Without Guilt & Aging Gracefully", old:56.97, price:38.99, off:"32% OFF", best:true };
+    const BUNDLE = { id:"all_guides", icon:"🧩", gt:"All 3 guides", gd:"Better Sleep, Eating Without Guilt & Aging Gracefully", oldMinor: bundleWas, priceMinor: bundleMinor, off:"32% OFF", best:true };
     let selected = "all_guides";
 
     function render() {
@@ -44,7 +54,7 @@
       const rowG = g => `<div class="guide ${selected===g.id?"sel":""}" data-id="${g.id}">
         <span class="ic">${g.icon}</span>
         <span class="gtext"><span class="gt">${g.gt}</span><span class="gd">${g.gd}</span></span>
-        <span class="gprice">${g.old?`<span class="old">$${g.old}</span>`:""}$${g.price.toFixed(2)}${g.off?`<span class="tag-off">${g.off}</span>`:""}</span>
+        <span class="gprice">${g.oldMinor?`<span class="old">${fmt(g.oldMinor)}</span>`:""}${fmt(g.priceMinor)}${g.off?`<span class="tag-off">${g.off}</span>`:""}</span>
         ${g.best?'<span class="tag-rec">BEST VALUE</span>':""}</div>`;
       box.innerHTML = GUIDES.map(rowG).join("") + rowG(BUNDLE);
       box.querySelectorAll(".guide").forEach(el => el.onclick = () => { selected = el.dataset.id; render(); });
@@ -56,7 +66,7 @@
       const all = [...GUIDES, BUNDLE]; const g = all.find(x => x.id === selected);
       // every option is one-time: bundle -> "all_guides", individual -> "guide_<id>"
       const upsellId = g.id === "all_guides" ? "all_guides" : "guide_" + g.id;
-      UPSELL.accept(upsellId, { id: upsellId, label: g.gt, amount: g.price, recurring: false }, "thankyou.html", e.currentTarget);
+      UPSELL.accept(upsellId, { id: upsellId, label: g.gt, amount: major(g.priceMinor), recurring: false }, "thankyou.html", e.currentTarget);
     };
     document.getElementById("skip").onclick = () => { location.href = "thankyou.html"; };
   </script>

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "account": "acct_1TpRX53x0B891G8V",
+  "livemode": true,
+  "currencies": {
+    "usd": { "decimals": 2, "symbol": "$", "code": "USD" },
+    "eur": { "decimals": 2, "symbol": "€", "code": "EUR" },
+    "gbp": { "decimals": 2, "symbol": "£", "code": "GBP" },
+    "mxn": { "decimals": 2, "symbol": "MX$", "code": "MXN" },
+    "brl": { "decimals": 2, "symbol": "R$", "code": "BRL" },
+    "clp": { "decimals": 0, "symbol": "CLP$", "code": "CLP" },
+    "cop": { "decimals": 0, "symbol": "COP$", "code": "COP" }
+  },
+  "region_to_currency": {
+    "US": "usd",
+    "GB": "gbp",
+    "MX": "mxn",
+    "BR": "brl",
+    "CL": "clp",
+    "CO": "cop",
+    "AT": "eur", "BE": "eur", "CY": "eur", "DE": "eur", "EE": "eur",
+    "ES": "eur", "FI": "eur", "FR": "eur", "GR": "eur", "HR": "eur",
+    "IE": "eur", "IT": "eur", "LT": "eur", "LU": "eur", "LV": "eur",
+    "MT": "eur", "NL": "eur", "PT": "eur", "SI": "eur", "SK": "eur",
+    "AD": "eur", "MC": "eur", "SM": "eur", "VA": "eur",
+    "EC": "usd", "SV": "usd", "PA": "usd", "PR": "usd"
+  },
+  "default_currency": "usd",
+  "plans": {
+    "1w": {
+      "usd": { "price": "price_1TqChQ3x0B891G8VXfVhEwZ3", "coupon": "fLsSa51J", "intro": 519, "regular": 2199, "weeks": 1 },
+      "eur": { "price": "price_1U2WY73x0B891G8VN1D0G7In", "coupon": "tm_1w_eur_intro", "intro": 499, "regular": 1999, "weeks": 1 },
+      "gbp": { "price": "price_1U2WYM3x0B891G8V4SmCluml", "coupon": "tm_1w_gbp_intro", "intro": 499, "regular": 1799, "weeks": 1 },
+      "mxn": { "price": "price_1U2WYP3x0B891G8VURfPkg3i", "coupon": "tm_1w_mxn_intro", "intro": 9900, "regular": 42900, "weeks": 1 },
+      "brl": { "price": "price_1U2WYR3x0B891G8Voa8pyQxD", "coupon": "tm_1w_brl_intro", "intro": 2990, "regular": 11990, "weeks": 1 },
+      "clp": { "price": "price_1U2WYd3x0B891G8VeuCAXIr0", "coupon": "tm_1w_clp_intro", "intro": 4990, "regular": 19990, "weeks": 1 },
+      "cop": { "price": "price_1U2WYf3x0B891G8VbaDxLSN3", "coupon": "tm_1w_cop_intro", "intro": 19900, "regular": 89900, "weeks": 1 }
+    },
+    "4w": {
+      "usd": { "price": "price_1TqChS3x0B891G8VAnNFfhdA", "coupon": "RKIibGD8", "intro": 999, "regular": 4995, "weeks": 4 },
+      "eur": { "price": "price_1U2WY83x0B891G8VLYmhtfgN", "coupon": "tm_4w_eur_intro", "intro": 999, "regular": 4499, "weeks": 4 },
+      "gbp": { "price": "price_1U2WYN3x0B891G8VHqvfjiIf", "coupon": "tm_4w_gbp_intro", "intro": 899, "regular": 3999, "weeks": 4 },
+      "mxn": { "price": "price_1U2WYQ3x0B891G8V2FB05hnj", "coupon": "tm_4w_mxn_intro", "intro": 19900, "regular": 99900, "weeks": 4 },
+      "brl": { "price": "price_1U2WYS3x0B891G8VkOqpp3ww", "coupon": "tm_4w_brl_intro", "intro": 5490, "regular": 26990, "weeks": 4 },
+      "clp": { "price": "price_1U2WYe3x0B891G8VLcx21k80", "coupon": "tm_4w_clp_intro", "intro": 9990, "regular": 49990, "weeks": 4 },
+      "cop": { "price": "price_1U2WYg3x0B891G8VOez9Wp7O", "coupon": "tm_4w_cop_intro", "intro": 39900, "regular": 199900, "weeks": 4 }
+    },
+    "12w": {
+      "usd": { "price": "price_1TqChT3x0B891G8V0FNT81If", "coupon": "3sUP0i8K", "intro": 1999, "regular": 8495, "weeks": 12 },
+      "eur": { "price": "price_1U2WY83x0B891G8VRk6RFCdN", "coupon": "tm_12w_eur_intro", "intro": 1999, "regular": 7999, "weeks": 12 },
+      "gbp": { "price": "price_1U2WYO3x0B891G8V4xZs3PJW", "coupon": "tm_12w_gbp_intro", "intro": 1799, "regular": 6999, "weeks": 12 },
+      "mxn": { "price": "price_1U2WYR3x0B891G8VlNrOg9Fp", "coupon": "tm_12w_mxn_intro", "intro": 39900, "regular": 169900, "weeks": 12 },
+      "brl": { "price": "price_1U2WYT3x0B891G8Vzi3c8N6F", "coupon": "tm_12w_brl_intro", "intro": 10990, "regular": 45990, "weeks": 12 },
+      "clp": { "price": "price_1U2WYe3x0B891G8VkqBiyU5V", "coupon": "tm_12w_clp_intro", "intro": 19990, "regular": 84990, "weeks": 12 },
+      "cop": { "price": "price_1U2WYg3x0B891G8VPWhTY6VJ", "coupon": "tm_12w_cop_intro", "intro": 79900, "regular": 339900, "weeks": 12 }
+    }
+  },
+  "upsells_recurring": {
+    "essential_guides": {
+      "usd": "price_1TqChU3x0B891G8VCfW94Ywx",
+      "eur": "price_1U2WZg3x0B891G8VSS2KZG76",
+      "gbp": "price_1U2WZi3x0B891G8VWonZEreA",
+      "mxn": "price_1U2WZj3x0B891G8VGOZB3mwZ",
+      "brl": "price_1U2WZl3x0B891G8Vad84Z9cA",
+      "clp": "price_1U2WZn3x0B891G8VdoPQbDJg",
+      "cop": "price_1U2WZo3x0B891G8Vlb8syssu"
+    },
+    "all_guides": {
+      "usd": "price_1TqChV3x0B891G8VV8xoImBl",
+      "eur": "price_1U2WZh3x0B891G8VmuHMkKpz",
+      "gbp": "price_1U2WZi3x0B891G8VZbxfuEVm",
+      "mxn": "price_1U2WZk3x0B891G8VXDwVkNzs",
+      "brl": "price_1U2WZm3x0B891G8VAAx02Fim",
+      "clp": "price_1U2WZn3x0B891G8V7kUHhTQy",
+      "cop": "price_1U2WZp3x0B891G8VrbGL5vvs"
+    }
+  },
+  "upsells_onetime": {
+    "essential_guides":         { "usd": 2599, "eur": 2499, "gbp": 2299, "mxn": 49900, "brl": 13990, "clp": 24990, "cop": 99900 },
+    "all_guides":               { "usd": 3899, "eur": 3799, "gbp": 3399, "mxn": 79900, "brl": 20990, "clp": 38990, "cop": 159900 },
+    "essential_guides_onetime": { "usd": 1899, "eur": 1799, "gbp": 1599, "mxn": 39900, "brl": 9990,  "clp": 18990, "cop": 74900 },
+    "guide_sleep":              { "usd": 1899, "eur": 1799, "gbp": 1599, "mxn": 39900, "brl": 9990,  "clp": 18990, "cop": 74900 },
+    "guide_eating":             { "usd": 1899, "eur": 1799, "gbp": 1599, "mxn": 39900, "brl": 9990,  "clp": 18990, "cop": 74900 },
+    "guide_aging":              { "usd": 1899, "eur": 1799, "gbp": 1599, "mxn": 39900, "brl": 9990,  "clp": 18990, "cop": 74900 },
+    "vip":                      { "usd": 499,  "eur": 499,  "gbp": 499,  "mxn": 9900,  "brl": 2490,  "clp": 4990,  "cop": 19900 }
+  },
+  "test": {
+    "promo": "TMTEST50",
+    "price_usd": "price_1TrZZ53x0B891G8VBXmnt6vP",
+    "note": "Test promo stays USD-only for now"
+  }
+}

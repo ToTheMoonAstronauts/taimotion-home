@@ -6,6 +6,7 @@
 <script src="/assets/theme.js?v=3"></script>
 <script src="/assets/track.js?v=3"></script>
 <script src="/assets/analytics.js?v=7"></script>
+<script src="/assets/currency.js?v=1"></script>
 <script>
 /* Resume from a recovery email: ?resume=<quiz_session_id> re-seeds the funnel (works on any
  * device), then reloads clean so the normal checkout flow picks up the prefilled session. */
@@ -302,12 +303,18 @@
     pretende diagnosticar, tratar, curar ni prevenir ninguna enfermedad. Consulte a un profesional sanitario antes de comenzar
     un nuevo programa de actividad física, especialmente si padece alguna afección médica.</p>
 <script>
-    const PLANS = [
-      { id: "1w",  name: "1-week plan",  old: "21.99", intro: "5.19",  perday: "0.74" },
-      { id: "4w",  name: "4-week plan",  old: "49.95", intro: "9.99",  perday: "0.36", popular: true },
-      { id: "12w", name: "12-week plan", old: "84.95", intro: "19.99", perday: "0.24" },
-    ];
     let session = {}; try { session = JSON.parse(localStorage.getItem("ctc_quiz_session")) || {}; } catch (e) {}
+    const currency = (window.TM_CURRENCY && TM_CURRENCY.ensure(session)) || session.currency || "usd";
+    try { localStorage.setItem("ctc_quiz_session", JSON.stringify(session)); } catch (e) {}
+    const PLANS = window.TM_CURRENCY
+      ? TM_CURRENCY.planCards(currency).map(p => Object.assign({}, p, {
+          name: p.id === "1w" ? "Plan de 1 semana" : p.id === "12w" ? "Plan de 12 semanas" : "Plan de 4 semanas",
+        }))
+      : [
+          { id: "1w",  name: "Plan de 1 semana",  old: "$21.99", intro: "$5.19",  perday: "$0.74" },
+          { id: "4w",  name: "Plan de 4 semanas",  old: "$49.95", intro: "$9.99",  perday: "$0.36", popular: true },
+          { id: "12w", name: "Plan de 12 semanas", old: "$84.95", intro: "$19.99", perday: "$0.24" },
+        ];
     let selected = "4w";
     try { const _sp = new URLSearchParams(location.search).get("plan") || localStorage.getItem("ctc_plan"); if (_sp && PLANS.find(p => p.id === _sp)) selected = _sp; } catch (e) {}
 
@@ -347,8 +354,8 @@
           ${p.popular ? '<span class="popular">MOST POPULAR</span>' : ""}
           <span class="radio"></span>
           <span class="pn"><span class="name">${p.name}</span><br>
-            <span class="old">$${p.old}</span><span class="now">$${p.intro}</span></span>
-          <span class="perday">$${p.perday}<small>per day</small></span>
+            <span class="old">${p.old}</span><span class="now">${p.intro}</span></span>
+          <span class="perday">${p.perday}<small>per day</small></span>
         </div>`).join("");
       document.querySelectorAll(".plans-slot").forEach(slot => slot.innerHTML = html);
       document.querySelectorAll(".plan").forEach(el => el.onclick = () => { selected = el.dataset.id; renderPlans(); updateRenew(); });

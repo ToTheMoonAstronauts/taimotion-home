@@ -11,7 +11,16 @@ export async function notifySlack(text: string, fetcher: typeof fetch = fetch): 
   } catch (_) { /* never block the caller on Slack */ }
 }
 
-const usd = (cents: number, currency: string) => `$${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+// Format Stripe minor units. Zero-decimal currencies (clp/cop) have no fractional unit.
+const ZERO_DECIMAL = new Set(['clp', 'cop', 'jpy', 'krw', 'vnd']);
+const money = (minor: number, currency: string) => {
+  const c = (currency || 'usd').toLowerCase();
+  const major = ZERO_DECIMAL.has(c) ? minor : minor / 100;
+  const formatted = ZERO_DECIMAL.has(c)
+    ? String(Math.round(major))
+    : major.toFixed(2);
+  return `${formatted} ${c.toUpperCase()}`;
+};
 
 // ── PostHog replay deep links ───────────────────────────────────────────────
 // assets/app.js identifies with the LOWERCASED email (posthog.identify(v.toLowerCase())),
@@ -44,11 +53,11 @@ function replaySuffix(email: string | null | undefined): string {
 
 export function fmtSubscriptionPaid(kind: 'initial' | 'renewal', email: string, amountCents: number, currency: string, isTest: boolean): string {
   // Text kept identical to the pre-refactor stripe-webhook messages.
-  return `:moneybag: *${kind === 'initial' ? 'New subscription' : 'Renewal'}* — ${email} — ${usd(amountCents, currency)}${isTest ? ' _(test)_' : ''}`;
+  return `:moneybag: *${kind === 'initial' ? 'New subscription' : 'Renewal'}* — ${email} — ${money(amountCents, currency)}${isTest ? ' _(test)_' : ''}`;
 }
 
 export function fmtUpsellPaid(upsellId: string, email: string, amountCents: number, currency: string, isTest: boolean): string {
-  return `:heavy_plus_sign: *Upsell:* ${upsellId} — ${email} — ${usd(amountCents, currency)}${isTest ? ' _(test)_' : ''}`;
+  return `:heavy_plus_sign: *Upsell:* ${upsellId} — ${email} — ${money(amountCents, currency)}${isTest ? ' _(test)_' : ''}`;
 }
 
 export function fmtCancelScheduled(email: string, planId: string | null | undefined, periodEndSec: number | null | undefined): string {
@@ -65,13 +74,13 @@ export function fmtSubscriptionEnded(email: string, planId: string | null | unde
 // props (the invoice.payment_failed payload carries no PI/charge) — the recording shows
 // what the card-entry experience actually looked like.
 export function fmtPaymentFailed(email: string, amountDueCents: number, currency: string, attemptCount: number): string {
-  return `:warning: *Payment failed* — ${email} — ${usd(amountDueCents, currency)} — attempt ${attemptCount}${replaySuffix(email)}`;
+  return `:warning: *Payment failed* — ${email} — ${money(amountDueCents, currency)} — attempt ${attemptCount}${replaySuffix(email)}`;
 }
 
-// amountRefunded is the charge's running total, so partial refunds read '$5.00 of $21.99'.
+// amountRefunded is the charge's running total, so partial refunds read '5.00 USD of 21.99 USD'.
 export function fmtRefund(email: string, amountRefundedCents: number, chargeCents: number, currency: string): string {
-  const partial = amountRefundedCents < chargeCents ? ` of ${usd(chargeCents, currency)}` : '';
-  return `:money_with_wings: *Refund* — ${email} — ${usd(amountRefundedCents, currency)}${partial}`;
+  const partial = amountRefundedCents < chargeCents ? ` of ${money(chargeCents, currency)}` : '';
+  return `:money_with_wings: *Refund* — ${email} — ${money(amountRefundedCents, currency)}${partial}`;
 }
 
 // NO LONGER FULLY ANONYMOUS. The visible text is still PII-free (no name, no address), but

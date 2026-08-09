@@ -39,11 +39,11 @@ Deno.test('notifySlack posts {text} JSON and swallows fetch failures', async () 
 
 Deno.test('money/churn formatters match the established channel format', () => {
   assertEquals(fmtSubscriptionPaid('initial', 'a@b.com', 519, 'usd', false),
-    ':moneybag: *New subscription* — a@b.com — $5.19 USD');
+    ':moneybag: *New subscription* — a@b.com — 5.19 USD');
   assertEquals(fmtSubscriptionPaid('renewal', 'a@b.com', 2199, 'usd', true),
-    ':moneybag: *Renewal* — a@b.com — $21.99 USD _(test)_');
+    ':moneybag: *Renewal* — a@b.com — 21.99 USD _(test)_');
   assertEquals(fmtUpsellPaid('all_guides', 'a@b.com', 3899, 'usd', false),
-    ':heavy_plus_sign: *Upsell:* all_guides — a@b.com — $38.99 USD');
+    ':heavy_plus_sign: *Upsell:* all_guides — a@b.com — 38.99 USD');
   assertEquals(fmtCancelScheduled('a@b.com', '4w', 1_800_000_000),
     ':x: *Cancel scheduled* — a@b.com — 4w — ends 2027-01-15');
   assertEquals(fmtSubscriptionEnded('a@b.com', '12w'),
@@ -51,13 +51,16 @@ Deno.test('money/churn formatters match the established channel format', () => {
   assertEquals(fmtSubscriptionEnded('a@b.com', null, 'all_guides'),
     ':headstone: *Upsell ended* — all_guides — a@b.com');
   assertEquals(fmtPaymentFailed('a@b.com', 4995, 'usd', 2),
-    ':warning: *Payment failed* — a@b.com — $49.95 USD — attempt 2' + REPLAY);
+    ':warning: *Payment failed* — a@b.com — 49.95 USD — attempt 2' + REPLAY);
   assertEquals(fmtAccountCreated('a@b.com'),
     ':bust_in_silhouette: *Account created* (checkout opened, not paid yet) — a@b.com' + REPLAY);
   assertEquals(fmtRefund('a@b.com', 2199, 2199, 'usd'),
-    ':money_with_wings: *Refund* — a@b.com — $21.99 USD'); // full: no "of" clause
+    ':money_with_wings: *Refund* — a@b.com — 21.99 USD'); // full: no "of" clause
   assertEquals(fmtRefund('a@b.com', 500, 2199, 'usd'),
-    ':money_with_wings: *Refund* — a@b.com — $5.00 USD of $21.99 USD'); // partial
+    ':money_with_wings: *Refund* — a@b.com — 5.00 USD of 21.99 USD'); // partial
+  // Zero-decimal currency (CLP) — no fractional division.
+  assertEquals(fmtSubscriptionPaid('initial', 'a@b.com', 9990, 'clp', false),
+    ':moneybag: *New subscription* — a@b.com — 9990 CLP');
 });
 
 Deno.test('lead formatter: anonymous without an email, replay link with one', () => {

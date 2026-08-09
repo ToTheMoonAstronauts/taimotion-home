@@ -50,6 +50,19 @@
     } catch (e) { /* no Intl at all: metric */ }
     return "metric";
   }
+  // Currency: same once-per-session rule as units. Implementation lives in currency.js when
+  // loaded on pay/checkout pages; here we only need detect for the quiz session seed.
+  function detectCurrency() {
+    if (window.TM_CURRENCY && typeof TM_CURRENCY.detect === "function") return TM_CURRENCY.detect();
+    try {
+      const q = new URLSearchParams(location.search).get("currency");
+      if (q) {
+        const k = q.toLowerCase();
+        if (["usd","eur","gbp","mxn","brl","clp","cop"].includes(k)) return k;
+      }
+    } catch (e) { /* ignore */ }
+    return "usd";
+  }
   // A screen declares its two unit labels metric-first (units: ["kg","lb"]); which one is live
   // is a session property, not a per-screen one, so every screen and all downstream copy agree.
   function unitFor(scr) { return S.units === "imperial" ? scr.units[1] : scr.units[0]; }
@@ -64,10 +77,14 @@
       ab_test_source: EXPLICIT_V ? "url" : null,   // "url" = explicit page (outside the PostHog experiment), "flag" = experiment-assigned
       age_band: null, answers: {}, index: 0, email: null, name: null,
       units: detectUnits(),
+      currency: detectCurrency(),
       height_cm: null, weight_kg: null, goal_weight_kg: null, bmi: null,
       selected_plan: null, status: "in_progress" };
   }
   let S = load() || fresh();
+  // Backfill currency for sessions started before multi-currency shipped.
+  if (!S.currency) { S.currency = detectCurrency(); }
+  if (window.TM_CURRENCY) TM_CURRENCY.ensure(S);
   function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
   // expose for checkout page + future Supabase POST
   window.CTC = {

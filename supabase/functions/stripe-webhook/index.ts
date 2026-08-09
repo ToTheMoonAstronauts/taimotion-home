@@ -1,6 +1,7 @@
 import Stripe from 'npm:stripe@17';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { classifyInvoice } from '../_shared/billing.ts';
+import { minorToMajor } from '../_shared/currency.ts';
 import { sendPurchase, sendUpsellPurchase } from '../_shared/meta-capi.ts';
 import { fmtCancelScheduled, fmtPaymentFailed, fmtRefund, fmtSubscriptionEnded, fmtSubscriptionPaid, fmtUpsellPaid, notifySlack } from '../_shared/slack.ts';
 
@@ -88,21 +89,23 @@ Deno.serve(async (req) => {
         const { kind, upsellId, capiEvent } = classifyInvoice({
           billingReason: inv.billing_reason, upsellId: meta.upsell_id, test: meta.test,
         });
+        const paidMinor = inv.amount_paid ?? 0;
+        const paidMajor = minorToMajor(paidMinor, inv.currency || 'usd');
         await db.from('payments').insert({
           id: inv.id, user_id: userId, subscription_id: subId,
-          amount: (inv.amount_paid ?? 0) / 100, currency: inv.currency,
+          amount: paidMajor, currency: inv.currency,
           kind, status: 'succeeded', raw: inv as unknown as Record<string, unknown>,
         });
         const email = inv.customer_email || await emailForUser(db, userId);
         await notifySlack(upsellId && kind.startsWith('upsell:')
-          ? fmtUpsellPaid(upsellId, email, inv.amount_paid ?? 0, inv.currency, meta.test === '1')
-          : fmtSubscriptionPaid(kind === 'initial' ? 'initial' : 'renewal', email, inv.amount_paid ?? 0, inv.currency, (inv.amount_paid ?? 0) <= 100));
+          ? fmtUpsellPaid(upsellId, email, paidMinor, inv.currency, meta.test === '1')
+          : fmtSubscriptionPaid(kind === 'initial' ? 'initial' : 'renewal', email, paidMinor, inv.currency, paidMajor <= 2));
         // CAPI: acquisitions only (never renewals), never internal test checkouts, and a recurring
         // upsell's first invoice reports UpsellPurchase — see classifyInvoice for the reasoning.
         if (capiEvent) {
           const send = capiEvent === 'UpsellPurchase' ? sendUpsellPurchase : sendPurchase;
           await send({
-            eventId: inv.id, email, value: (inv.amount_paid ?? 0) / 100, currency: inv.currency,
+            eventId: inv.id, email, value: paidMajor, currency: inv.currency,
             fbc: meta.fbc, clientIp: meta.client_ip, clientUserAgent: meta.client_ua, eventSourceUrl: meta.event_source_url,
           });
         }
@@ -155,20 +158,22 @@ Deno.serve(async (req) => {
             const chId = (pi.latest_charge as string) || null;
             if (chId) receipt_url = (await stripe.charges.retrieve(chId)).receipt_url ?? null;
           } catch (_) { /* receipt optional */ }
+          const upMinor = pi.amount_received ?? 0;
+          const upMajor = minorToMajor(upMinor, pi.currency || 'usd');
           await db.from('payments').upsert({
-            id: pi.id, user_id: pi.metadata.user_id, amount: (pi.amount_received ?? 0) / 100,
+            id: pi.id, user_id: pi.metadata.user_id, amount: upMajor,
             currency: pi.currency, kind: 'upsell:' + pi.metadata.upsell_id, status: 'succeeded',
             raw: { ...(pi as unknown as Record<string, unknown>), receipt_url },
           }, { onConflict: 'id', ignoreDuplicates: true });
           const email = await emailForUser(db, pi.metadata.user_id);
-          await notifySlack(fmtUpsellPaid(pi.metadata.upsell_id, email, pi.amount_received ?? 0, pi.currency, pi.metadata.test === '1'));
+          await notifySlack(fmtUpsellPaid(pi.metadata.upsell_id, email, upMinor, pi.currency, pi.metadata.test === '1'));
           // CAPI UpsellPurchase — an add-on bought by an existing customer, NOT an acquisition.
           // Sending Purchase here made one buyer read as 2–4 purchases in Ads Manager (inflated
           // conversions, understated CPA); the revenue still reaches Meta under its own event name.
           // Skip internal test charges.
           if (pi.metadata.test !== '1') {
             await sendUpsellPurchase({
-              eventId: pi.id, email, value: (pi.amount_received ?? 0) / 100, currency: pi.currency,
+              eventId: pi.id, email, value: upMajor, currency: pi.currency,
               fbc: pi.metadata.fbc, clientIp: pi.metadata.client_ip, clientUserAgent: pi.metadata.client_ua, eventSourceUrl: pi.metadata.event_source_url,
             });
           }

@@ -2,6 +2,7 @@ import Stripe from 'npm:stripe@17';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { buildFbc } from '../_shared/meta-capi.ts';
 import { fmtAccountCreated, notifySlack } from '../_shared/slack.ts';
+import { PLANS, normalizeCurrency, type Currency } from '../_shared/currency.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2024-06-20' });
 const cors = {
@@ -10,15 +11,8 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Max-Age': '86400',   // cache the preflight — retries/reloads skip the OPTIONS round trip
 };
-// plan_id -> { price (recurring, regular amount), coupon (one-time intro discount) }
-const PLANS: Record<string, { price: string; coupon: string }> = {
-  '1w':  { price: 'price_1TqChQ3x0B891G8VXfVhEwZ3', coupon: 'fLsSa51J' }, // $5.19 -> $21.99/wk
-  '4w':  { price: 'price_1TqChS3x0B891G8VAnNFfhdA', coupon: 'RKIibGD8' }, // $9.99 -> $49.95/4wk
-  '12w': { price: 'price_1TqChT3x0B891G8V0FNT81If', coupon: '3sUP0i8K' }, // $19.99 -> $84.95/12wk
-};
-// TEST onboarding: TMTEST50 subscribes to a $2.00/week price with NO coupon -> $2.00 first AND every renewal.
-// (Was $0.50 = Stripe's exact USD minimum, which could net to the customer balance and activate the
-// sub with no PaymentIntent/charge. $2.00 is safely above the minimum so a real card charge always happens.)
+// TEST onboarding: TMTEST50 subscribes to a $2.00/week USD price with NO coupon -> $2.00 first AND every renewal.
+// USD-only by design (test cards / promo path). Multi-currency checkouts ignore this promo.
 const TEST_PROMO = 'TMTEST50';
 const TEST_PRICE = 'price_1TrZZ53x0B891G8VBXmnt6vP';
 const json = (b: unknown, s = 200) =>
@@ -39,9 +33,13 @@ async function resolveUser(db: ReturnType<typeof createClient>, email: string): 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const { plan_id, quiz_session_id, promo_code, fbclid, fbclid_t } = await req.json();
-    const plan = PLANS[plan_id];
-    if (!plan) return json({ error: 'unknown plan' }, 400);
+    const body = await req.json();
+    const { plan_id, quiz_session_id, promo_code, fbclid, fbclid_t } = body;
+    const currency: Currency = normalizeCurrency(body.currency);
+    const planRow = PLANS[plan_id];
+    if (!planRow) return json({ error: 'unknown plan' }, 400);
+    const plan = planRow[currency];
+    if (!plan) return json({ error: 'unknown plan/currency' }, 400);
     if (!quiz_session_id) return json({ error: 'missing quiz_session_id' }, 400);
 
     const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -96,18 +94,22 @@ Deno.serve(async (req) => {
       db.from('quiz_sessions').update({ user_id: userId, selected_plan: plan_id }).eq('id', quiz_session_id),
     ]);
 
-    // Price + discount. Default = plan's regular price + its one-time intro coupon.
-    // TEST promo routes to the $0.50/week test price with NO coupon -> $0.50 first and every renewal.
+    // Price + discount. Default = plan's regular price + its one-time intro coupon (per currency).
+    // TEST promo is USD-only: routes to the $2/week test price with NO coupon.
     let priceId = plan.price;
     let discounts: Stripe.SubscriptionCreateParams.Discount[] = [{ coupon: plan.coupon }];
+    let chargeCurrency: Currency = currency;
     const isTest = !!promo_code && String(promo_code).trim().toUpperCase() === TEST_PROMO;
     if (isTest) {
       priceId = TEST_PRICE;
       discounts = [];
+      chargeCurrency = 'usd';
     } else if (promo_code) {
       const found = await stripe.promotionCodes.list({ code: String(promo_code).trim(), active: true, limit: 1 });
       if (!found.data.length) return json({ error: 'invalid promo code' }, 400);
       const c = found.data[0].coupon as Stripe.Coupon;
+      // Promo coupons are USD amount_off today — only apply on USD checkouts.
+      if (currency !== 'usd') return json({ error: 'invalid promo code' }, 400);
       discounts = [{ coupon: c.id }];
     }
 
@@ -145,7 +147,7 @@ Deno.serve(async (req) => {
       payment_settings: { save_default_payment_method: 'on_subscription', payment_method_types: ['card'] },
       expand: ['latest_invoice.payment_intent'],
       metadata: {
-        user_id: userId, plan_id, checkout_token: checkoutToken, test: isTest ? '1' : '',
+        user_id: userId, plan_id, currency: chargeCurrency, checkout_token: checkoutToken, test: isTest ? '1' : '',
         ...(fbc ? { fbc } : {}),
         ...(clientIp ? { client_ip: clientIp } : {}),
         ...(clientUa ? { client_ua: clientUa } : {}),
@@ -161,9 +163,15 @@ Deno.serve(async (req) => {
     // sub is silently active and nothing was charged. Detect that and tell the pay page to skip the
     // card form and go straight through (the member is already provisioned).
     if (!pi || !pi.client_secret) {
-      return json({ activated: true, subscriptionId: sub.id, checkoutToken, amount: (inv.amount_due ?? 0) });
+      return json({
+        activated: true, subscriptionId: sub.id, checkoutToken,
+        amount: (inv.amount_due ?? 0), currency: chargeCurrency,
+      });
     }
-    return json({ clientSecret: pi.client_secret, subscriptionId: sub.id, checkoutToken, amount: pi.amount });
+    return json({
+      clientSecret: pi.client_secret, subscriptionId: sub.id, checkoutToken,
+      amount: pi.amount, currency: pi.currency || chargeCurrency,
+    });
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);
   }
