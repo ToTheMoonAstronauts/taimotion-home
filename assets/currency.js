@@ -1,6 +1,9 @@
 /* Multi-currency catalog + detection for the Chair Tai Chi funnel.
  * Amounts are Stripe minor units (cents for 2-decimal currencies; whole pesos for clp/cop).
- * Session field: S.currency ("usd"|"eur"|...). Resolved once like S.units; ?currency= overrides.
+ * Session field: S.currency ("usd"|"eur"|...).
+ *
+ * Currency is chosen from the visitor's IP country via Cloudflare (/api/geo),
+ * not browser language. ?currency= still overrides for QA.
  */
 window.TM_CURRENCY = (function () {
   const CURRENCIES = {
@@ -14,8 +17,10 @@ window.TM_CURRENCY = (function () {
   };
   const DEFAULT = "usd";
   const ALLOWED = Object.keys(CURRENCIES);
+  const GEO_CACHE_KEY = "tm_ip_country"; // sessionStorage — per tab/session
 
-  // ISO region -> currency. Unlisted regions fall through to DEFAULT (usd).
+  // ISO 3166-1 alpha-2 country (from Cloudflare IP geo) -> currency.
+  // Unlisted countries fall through to DEFAULT (usd).
   const REGION = {
     US: "usd", GB: "gbp", MX: "mxn", BR: "brl", CL: "clp", CO: "cop",
     EC: "usd", SV: "usd", PA: "usd", PR: "usd",
@@ -80,31 +85,75 @@ window.TM_CURRENCY = (function () {
   function meta(c) { return CURRENCIES[normalize(c)] || CURRENCIES[DEFAULT]; }
   function decimals(c) { return meta(c).decimals; }
 
-  function detect() {
+  function urlOverride() {
     try {
       const q = new URLSearchParams(location.search).get("currency");
       if (q && ALLOWED.includes(q.toLowerCase())) return q.toLowerCase();
-    } catch (e) { /* fall through */ }
-    const langs = (navigator.languages && navigator.languages.length)
-      ? navigator.languages : [navigator.language];
-    for (const l of langs) {
-      if (!l) continue;
-      try {
-        const r = (new Intl.Locale(l)).region;
-        if (r && REGION[r]) return REGION[r];
-      } catch (e) { /* try next */ }
-    }
-    // Timezone soft signal for a few high-volume regions when locale has no region.
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-      if (tz.indexOf("America/Mexico") === 0 || tz === "America/Tijuana") return "mxn";
-      if (tz.indexOf("America/Sao_Paulo") === 0 || tz.indexOf("America/Fortaleza") === 0) return "brl";
-      if (tz === "America/Santiago") return "clp";
-      if (tz === "America/Bogota") return "cop";
-      if (tz.indexOf("Europe/London") === 0) return "gbp";
-      if (tz.indexOf("Europe/") === 0) return "eur";
     } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function currencyFromCountry(cc) {
+    if (!cc || cc === "XX" || cc === "T1") return DEFAULT; // T1 = Cloudflare tor/unknown
+    const r = String(cc).toUpperCase();
+    return REGION[r] || DEFAULT;
+  }
+
+  function cachedCountry() {
+    try { return sessionStorage.getItem(GEO_CACHE_KEY); } catch (e) { return null; }
+  }
+  function setCachedCountry(cc) {
+    try { if (cc) sessionStorage.setItem(GEO_CACHE_KEY, String(cc).toUpperCase()); } catch (e) { /* ignore */ }
+  }
+
+  // Sync detect: URL override → cached IP country → usd.
+  // Locale/timezone are intentionally NOT used (IP is source of truth).
+  function detect() {
+    const forced = urlOverride();
+    if (forced) return forced;
+    const cc = cachedCountry();
+    if (cc) return currencyFromCountry(cc);
     return DEFAULT;
+  }
+
+  // Fetch Cloudflare edge country once per tab; cache in sessionStorage.
+  let _geoPromise = null;
+  function resolveFromIp() {
+    const forced = urlOverride();
+    if (forced) return Promise.resolve(forced);
+
+    const cc = cachedCountry();
+    if (cc) return Promise.resolve(currencyFromCountry(cc));
+
+    if (_geoPromise) return _geoPromise;
+    _geoPromise = fetch("/api/geo", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : { country: "XX" }; })
+      .then(function (data) {
+        const country = (data && data.country) ? String(data.country).toUpperCase() : "XX";
+        setCachedCountry(country);
+        return currencyFromCountry(country);
+      })
+      .catch(function () { return DEFAULT; });
+    return _geoPromise;
+  }
+
+  // Apply IP currency onto a session. Honours ?currency= and leaves paid sessions alone.
+  function applyFromIp(session) {
+    if (!session) return resolveFromIp();
+    const forced = urlOverride();
+    if (forced) {
+      session.currency = forced;
+      session.currency_source = "url";
+      return Promise.resolve(forced);
+    }
+    if (session.status === "paid" || session.paid) {
+      return Promise.resolve(normalize(session.currency || DEFAULT));
+    }
+    return resolveFromIp().then(function (c) {
+      session.currency = c;
+      session.currency_source = "ip";
+      return c;
+    });
   }
 
   // Format Stripe minor units for display. Uses Intl when available.
@@ -174,24 +223,34 @@ window.TM_CURRENCY = (function () {
     return row[c] != null ? row[c] : row[DEFAULT];
   }
 
-  // Attach currency to a session object (mutates). Used by app.js and post-quiz pages.
+  // Sync attach (uses IP cache if already fetched). Prefer ensureAsync / applyFromIp on paywall.
   function ensure(session) {
     if (!session) return DEFAULT;
+    const forced = urlOverride();
+    if (forced) {
+      session.currency = forced;
+      session.currency_source = "url";
+      return forced;
+    }
     if (!session.currency || !ALLOWED.includes(session.currency)) {
       session.currency = detect();
-    } else {
-      // Still honour ?currency= mid-session for QA / deliberate override.
-      try {
-        const q = new URLSearchParams(location.search).get("currency");
-        if (q && ALLOWED.includes(q.toLowerCase())) session.currency = q.toLowerCase();
-      } catch (e) { /* ignore */ }
+      if (!session.currency_source) session.currency_source = cachedCountry() ? "ip" : "default";
     }
     return session.currency;
   }
 
+  // Async ensure: waits for /api/geo when cache is cold. Use on checkout/pay.
+  function ensureAsync(session) {
+    return applyFromIp(session || {});
+  }
+
+  // Kick off geo early so quiz → checkout usually has cache warm.
+  resolveFromIp();
+
   return {
-    DEFAULT, ALLOWED, CURRENCIES, PLANS, UPSELLS,
-    normalize, detect, ensure, decimals, format, toMajor,
+    DEFAULT, ALLOWED, CURRENCIES, PLANS, UPSELLS, REGION,
+    normalize, detect, ensure, ensureAsync, applyFromIp, resolveFromIp,
+    currencyFromCountry, decimals, format, toMajor,
     plan, planCards, upsellMinor, upsellWasMinor, meta,
   };
 })();

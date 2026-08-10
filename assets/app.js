@@ -50,8 +50,8 @@
     } catch (e) { /* no Intl at all: metric */ }
     return "metric";
   }
-  // Currency: same once-per-session rule as units. Implementation lives in currency.js when
-  // loaded on pay/checkout pages; here we only need detect for the quiz session seed.
+  // Currency: IP country via Cloudflare /api/geo (see currency.js). ?currency= overrides.
+  // Sync detect uses sessionStorage cache; applyFromIp refreshes once geo returns.
   function detectCurrency() {
     if (window.TM_CURRENCY && typeof TM_CURRENCY.detect === "function") return TM_CURRENCY.detect();
     try {
@@ -85,6 +85,10 @@
   // Backfill currency for sessions started before multi-currency shipped.
   if (!S.currency) { S.currency = detectCurrency(); }
   if (window.TM_CURRENCY) TM_CURRENCY.ensure(S);
+  // Resolve IP country async; update session unless user forced ?currency= or already paid.
+  if (window.TM_CURRENCY && typeof TM_CURRENCY.applyFromIp === "function") {
+    TM_CURRENCY.applyFromIp(S).then(function () { save(); }).catch(function () { /* geo optional */ });
+  }
   function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
   // expose for checkout page + future Supabase POST
   window.CTC = {

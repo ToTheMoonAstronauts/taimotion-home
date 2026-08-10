@@ -40,34 +40,19 @@
 </main>
 <script src="assets/api.js?v=5"></script>
 <script src="assets/stripe.js?v=2"></script>
-<script src="assets/currency.js?v=1"></script>
+<script src="assets/currency.js?v=2"></script>
 <script src="assets/flow.js?v=3"></script>
 <script>
     const s = FLOW.get();
-    const currency = (window.TM_CURRENCY && TM_CURRENCY.ensure(s)) || s.currency || "usd";
-    FLOW.save(s);
     const planId = s.selected_plan || "4w";
-    const plan = window.TM_CURRENCY
-      ? TM_CURRENCY.plan(planId, currency)
-      : { id: planId, name: "Plan", intro: 999, regular: 4995, weeks: 4 };
     const planNames = { "1w": "1-week plan", "4w": "4-week plan", "12w": "12-week plan" };
-    plan.name = planNames[planId] || plan.name || "Plan";
     const payBtn = document.getElementById("pay");
     const msg = document.getElementById("payMsg");
     document.getElementById("stephdr").innerHTML = FLOW.stepHeader("setup");
-    document.getElementById("planName").textContent = plan.name + " (introductory)";
-    document.getElementById("planPrice").textContent = FLOW.moneyMinor(plan.intro, currency);
-    document.getElementById("total").textContent = FLOW.moneyMinor(plan.intro, currency);
     document.getElementById("emailShow").textContent = s.email || "(missing — please restart)";
     // Renewal fine print intentionally hidden on this step (terms already shown on the checkout step).
 
     const payLoader = document.getElementById("payLoader");
-    // Optional promo via URL param, e.g. /pay?promo=TMTEST50 — no visible field.
-    // Promo is USD-only (server); non-USD sessions ignore it.
-    const promoCode = (currency === "usd")
-      ? (new URLSearchParams(location.search).get("promo") || localStorage.getItem("ctc_promo") || "")
-      : "";
-
     /* DEFERRED-INTENT checkout: the card form mounts immediately (~1s) with only
      * {mode, amount, currency}, while create-subscription (~5s of Stripe API work) runs in
      * the background. The two meet at confirm time: elements.submit() -> await the sub's
@@ -77,6 +62,9 @@
      * "accept-a-payment-deferred" (type=subscription). */
     const stripe = window.stripeClient();
     let elements = null, mountedAmount = null, subReady = null;
+    let currency = "usd";
+    let plan = { id: planId, name: planNames[planId] || "Plan", intro: 999, regular: 4995, weeks: 4 };
+    let promoCode = "";
 
     function mountForm(amountMinor, cur) {
       mountedAmount = amountMinor;
@@ -131,17 +119,6 @@
       return r;
     }
 
-    window._payT0 = Date.now(); try { if (window.TM) TM.track("pay_view", { plan: planId, currency }); } catch (e) {}
-    if (!s.email || !s.id) {
-      payLoader.style.display = "none"; msg.textContent = "Missing your details — please restart the quiz.";
-    } else {
-      mountForm(plan.intro, currency);
-      subReady = createSub(promoCode).catch(() => {
-        try { if (window.TM) TM.track("pay_form_error", { reason: "exception" }); } catch (er) {}
-        msg.textContent = "Could not start checkout. Please refresh and retry."; return null;
-      });
-    }
-
     payBtn.onclick = async () => {
       if (!elements || !subReady) return;
       payBtn.disabled = true; msg.textContent = "";
@@ -164,6 +141,39 @@
       FLOW.save(s2);
       location.href = "upsell1.html";           // webhook provisions access during the upsell steps
     };
+
+    // Resolve IP currency first so Elements + create-subscription use the same currency.
+    (async function bootPay() {
+      if (window.TM_CURRENCY && TM_CURRENCY.ensureAsync) {
+        currency = await TM_CURRENCY.ensureAsync(s);
+      } else if (window.TM_CURRENCY) {
+        currency = TM_CURRENCY.ensure(s);
+      } else {
+        currency = s.currency || "usd";
+      }
+      FLOW.save(s);
+      plan = window.TM_CURRENCY
+        ? TM_CURRENCY.plan(planId, currency)
+        : { id: planId, name: planNames[planId] || "Plan", intro: 999, regular: 4995, weeks: 4 };
+      plan.name = planNames[planId] || plan.name || "Plan";
+      document.getElementById("planName").textContent = plan.name + " (introductory)";
+      document.getElementById("planPrice").textContent = FLOW.moneyMinor(plan.intro, currency);
+      document.getElementById("total").textContent = FLOW.moneyMinor(plan.intro, currency);
+      promoCode = (currency === "usd")
+        ? (new URLSearchParams(location.search).get("promo") || localStorage.getItem("ctc_promo") || "")
+        : "";
+
+      window._payT0 = Date.now(); try { if (window.TM) TM.track("pay_view", { plan: planId, currency }); } catch (e) {}
+      if (!s.email || !s.id) {
+        payLoader.style.display = "none"; msg.textContent = "Missing your details — please restart the quiz.";
+      } else {
+        mountForm(plan.intro, currency);
+        subReady = createSub(promoCode).catch(() => {
+          try { if (window.TM) TM.track("pay_form_error", { reason: "exception" }); } catch (er) {}
+          msg.textContent = "Could not start checkout. Please refresh and retry."; return null;
+        });
+      }
+    })();
   </script>
 
 <div style="text-align:center;padding:18px 0"><a href="/es/pay.html" id="lang-link-ck" style="color:#8a9585;text-decoration:underline;font:500 15px system-ui,sans-serif">Español</a></div></body>

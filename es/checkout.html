@@ -6,7 +6,7 @@
 <script src="/assets/theme.js?v=3"></script>
 <script src="/assets/track.js?v=3"></script>
 <script src="/assets/analytics.js?v=7"></script>
-<script src="/assets/currency.js?v=1"></script>
+<script src="/assets/currency.js?v=2"></script>
 <script>
 /* Resume from a recovery email: ?resume=<quiz_session_id> re-seeds the funnel (works on any
  * device), then reloads clean so the normal checkout flow picks up the prefilled session. */
@@ -304,19 +304,14 @@
     un nuevo programa de actividad física, especialmente si padece alguna afección médica.</p>
 <script>
     let session = {}; try { session = JSON.parse(localStorage.getItem("ctc_quiz_session")) || {}; } catch (e) {}
-    const currency = (window.TM_CURRENCY && TM_CURRENCY.ensure(session)) || session.currency || "usd";
-    try { localStorage.setItem("ctc_quiz_session", JSON.stringify(session)); } catch (e) {}
-    const PLANS = window.TM_CURRENCY
-      ? TM_CURRENCY.planCards(currency).map(p => Object.assign({}, p, {
-          name: p.id === "1w" ? "Plan de 1 semana" : p.id === "12w" ? "Plan de 12 semanas" : "Plan de 4 semanas",
-        }))
-      : [
-          { id: "1w",  name: "Plan de 1 semana",  old: "$21.99", intro: "$5.19",  perday: "$0.74" },
-          { id: "4w",  name: "Plan de 4 semanas",  old: "$49.95", intro: "$9.99",  perday: "$0.36", popular: true },
-          { id: "12w", name: "Plan de 12 semanas", old: "$84.95", intro: "$19.99", perday: "$0.24" },
-        ];
+    let currency = "usd";
+    let PLANS = [];
     let selected = "4w";
-    try { const _sp = new URLSearchParams(location.search).get("plan") || localStorage.getItem("ctc_plan"); if (_sp && PLANS.find(p => p.id === _sp)) selected = _sp; } catch (e) {}
+    function esNames(cards) {
+      return cards.map(p => Object.assign({}, p, {
+        name: p.id === "1w" ? "Plan de 1 semana" : p.id === "12w" ? "Plan de 12 semanas" : "Plan de 4 semanas",
+      }));
+    }
 
     if (session.name) document.getElementById("headline").textContent = session.name + ", your plan is ready";
 
@@ -364,7 +359,28 @@
       document.getElementById("renewNote").innerHTML =
         'By continuing, you agree to our <a href="terms-of-services.html" target="_blank" rel="noopener">Terms of Service</a> &amp; <a href="privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.';
     }
-    renderPlans(); updateRenew();
+    (async function bootCurrency() {
+      if (window.TM_CURRENCY && TM_CURRENCY.ensureAsync) {
+        currency = await TM_CURRENCY.ensureAsync(session);
+      } else if (window.TM_CURRENCY) {
+        currency = TM_CURRENCY.ensure(session);
+      } else {
+        currency = session.currency || "usd";
+      }
+      try { localStorage.setItem("ctc_quiz_session", JSON.stringify(session)); } catch (e) {}
+      PLANS = window.TM_CURRENCY
+        ? esNames(TM_CURRENCY.planCards(currency))
+        : esNames([
+            { id: "1w",  old: "$21.99", intro: "$5.19",  perday: "$0.74" },
+            { id: "4w",  old: "$49.95", intro: "$9.99",  perday: "$0.36", popular: true },
+            { id: "12w", old: "$84.95", intro: "$19.99", perday: "$0.24" },
+          ]);
+      try {
+        const _sp = new URLSearchParams(location.search).get("plan") || localStorage.getItem("ctc_plan");
+        if (_sp && PLANS.find(p => p.id === _sp)) selected = _sp;
+      } catch (e) {}
+      renderPlans(); updateRenew();
+    })();
 
     // countdown (both clocks)
     let t = 300;
