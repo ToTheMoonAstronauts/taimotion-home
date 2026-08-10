@@ -7,8 +7,13 @@ export const DEFAULT_CURRENCY: Currency = 'usd';
 // Zero-decimal: minor unit === whole currency unit (no ×100).
 export const ZERO_DECIMAL: ReadonlySet<string> = new Set(['clp', 'cop']);
 
+// Hyperinflated / unstable local currencies — never accept as a charge currency.
+// VE (VES) is the primary case; client also maps country VE → usd.
+const BLOCKED_CURRENCIES = new Set(['ves', 'vef']);
+
 export function normalizeCurrency(c: unknown): Currency {
   const k = String(c || '').toLowerCase();
+  if (BLOCKED_CURRENCIES.has(k)) return DEFAULT_CURRENCY;
   return (CURRENCIES as string[]).includes(k) ? (k as Currency) : DEFAULT_CURRENCY;
 }
 

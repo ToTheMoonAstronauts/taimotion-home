@@ -1,10 +1,13 @@
 /**
  * Cloudflare Pages Function — visitor country from the edge (IP geolocation).
- * GET /api/geo → { country: "DE" }  (ISO 3166-1 alpha-2, or "XX" if unknown)
+ * GET /api/geo → { country: "DE", force_usd: false }
  *
  * Uses request.cf.country (Cloudflare network) with CF-IPCountry header fallback.
- * No third-party geo API; works only when the site is served through Cloudflare.
+ * force_usd: countries whose local currency we refuse (e.g. VE / VES hyperinflation).
  */
+// Keep in sync with assets/currency.js FORCE_USD_COUNTRIES.
+const FORCE_USD_COUNTRIES = { VE: true };
+
 export async function onRequestGet(context) {
   const req = context.request;
   const country = (
@@ -13,7 +16,12 @@ export async function onRequestGet(context) {
     "XX"
   ).toString().toUpperCase();
 
-  return new Response(JSON.stringify({ country }), {
+  const body = {
+    country,
+    force_usd: !!FORCE_USD_COUNTRIES[country],
+  };
+
+  return new Response(JSON.stringify(body), {
     headers: {
       "content-type": "application/json; charset=utf-8",
       // Private: country is per-visitor. Short cache avoids hammering on multi-tab.

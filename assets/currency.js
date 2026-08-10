@@ -30,6 +30,16 @@ window.TM_CURRENCY = (function () {
     SI: "eur", SK: "eur", AD: "eur", MC: "eur", SM: "eur", VA: "eur",
   };
 
+  // Countries whose local currency we NEVER charge in (hyperinflation / unstable).
+  // Always USD — do not add VES/ARS/etc. Stripe Prices for these.
+  // VE = Venezuela (VES bolívar). Extend here if another currency goes toxic.
+  const FORCE_USD_COUNTRIES = {
+    VE: true, // Venezuelan bolívar (VES) — hyperinflated, treat as USD
+  };
+
+  // Currency codes we refuse even via ?currency= (defense in depth).
+  const BLOCKED_CURRENCIES = { ves: true, vef: true };
+
   // plan_id -> currency -> { intro, regular, weeks } in minor units
   const PLANS = {
     "1w": {
@@ -88,7 +98,10 @@ window.TM_CURRENCY = (function () {
   function urlOverride() {
     try {
       const q = new URLSearchParams(location.search).get("currency");
-      if (q && ALLOWED.includes(q.toLowerCase())) return q.toLowerCase();
+      if (!q) return null;
+      const k = q.toLowerCase();
+      if (BLOCKED_CURRENCIES[k]) return DEFAULT; // never honour VES etc.
+      if (ALLOWED.includes(k)) return k;
     } catch (e) { /* ignore */ }
     return null;
   }
@@ -96,6 +109,8 @@ window.TM_CURRENCY = (function () {
   function currencyFromCountry(cc) {
     if (!cc || cc === "XX" || cc === "T1") return DEFAULT; // T1 = Cloudflare tor/unknown
     const r = String(cc).toUpperCase();
+    // Explicit blacklist first — even if REGION later gains an entry by mistake.
+    if (FORCE_USD_COUNTRIES[r]) return DEFAULT;
     return REGION[r] || DEFAULT;
   }
 
@@ -249,6 +264,7 @@ window.TM_CURRENCY = (function () {
 
   return {
     DEFAULT, ALLOWED, CURRENCIES, PLANS, UPSELLS, REGION,
+    FORCE_USD_COUNTRIES, BLOCKED_CURRENCIES,
     normalize, detect, ensure, ensureAsync, applyFromIp, resolveFromIp,
     currencyFromCountry, decimals, format, toMajor,
     plan, planCards, upsellMinor, upsellWasMinor, meta,
