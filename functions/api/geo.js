@@ -6,7 +6,7 @@
  * force_usd: countries whose local currency we refuse (e.g. VE / VES hyperinflation).
  */
 // Keep in sync with assets/currency.js FORCE_USD_COUNTRIES.
-const FORCE_USD_COUNTRIES = { VE: true };
+const FORCE_USD_COUNTRIES = { VE: true, AR: true };
 
 export async function onRequestGet(context) {
   const req = context.request;

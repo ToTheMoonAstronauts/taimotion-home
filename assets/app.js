@@ -58,7 +58,7 @@
       const q = new URLSearchParams(location.search).get("currency");
       if (q) {
         const k = q.toLowerCase();
-        if (["usd","eur","gbp","mxn","brl","clp","cop"].includes(k)) return k;
+        if (["usd","eur","gbp","mxn","brl","clp","cop","pen","crc","gtq","hnl","uyu","bob","pyg"].includes(k)) return k;
       }
     } catch (e) { /* ignore */ }
     return "usd";

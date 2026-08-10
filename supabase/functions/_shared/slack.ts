@@ -12,7 +12,7 @@ export async function notifySlack(text: string, fetcher: typeof fetch = fetch): 
 }
 
 // Format Stripe minor units. Zero-decimal currencies (clp/cop) have no fractional unit.
-const ZERO_DECIMAL = new Set(['clp', 'cop', 'jpy', 'krw', 'vnd']);
+const ZERO_DECIMAL = new Set(['clp', 'cop', 'pyg', 'jpy', 'krw', 'vnd']);
 const money = (minor: number, currency: string) => {
   const c = (currency || 'usd').toLowerCase();
   const major = ZERO_DECIMAL.has(c) ? minor : minor / 100;

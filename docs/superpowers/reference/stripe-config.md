@@ -154,3 +154,28 @@ PLANS[plan_id][currency] = { price: 'price_…', coupon: '…' }
 
 Currency detection (client, session-level, like units): locale region → currency; `?currency=` override; default `usd`.  
 CLP/COP: format with 0 fraction digits; all money APIs use minor units as Stripe defines them.
+
+---
+
+## LATAM ads geo expansion (2026-08-10)
+
+Added live Prices + intro coupons for: **pen, crc, gtq, hnl, uyu, bob, pyg**.
+Country map covers Meta ads inclusion set:
+
+| Currency | Countries |
+|----------|-----------|
+| USD | US, EC, PA, PR, SV, **VE**, **AR** (forced), default |
+| MXN | MX |
+| CLP | CL |
+| COP | CO |
+| PEN | PE |
+| CRC | CR |
+| GTQ | GT |
+| HNL | HN |
+| UYU | UY |
+| BOB | BO |
+| PYG | PY (zero-decimal) |
+| EUR/GBP/BRL | existing |
+
+Lookup keys: `tm_{plan}_{currency}` / coupons `tm_{plan}_{currency}_intro`.
+See `supabase/functions/_shared/currency.ts` for price IDs.
